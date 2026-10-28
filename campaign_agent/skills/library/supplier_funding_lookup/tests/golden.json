@@ -1,0 +1,24 @@
+{
+  "cases": [
+    {
+      "name": "supplier_funding_lookup_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "supplier": "Crunchwell Foods Ltd",
+        "funding_by_psg_pct": {
+          "PSG-BR001-01": 3.7,
+          "PSG-BR001-02": 2.9,
+          "PSG-BR001-03": 0.9,
+          "PSG-BR001-04": 2.3,
+          "PSG-BR001-05": 1.9
+        },
+        "est_funding_pool_6w_gbp": 327.37,
+        "funding_confirmed": false
+      }
+    }
+  ]
+}

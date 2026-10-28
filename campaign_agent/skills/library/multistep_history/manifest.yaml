@@ -1,0 +1,24 @@
+# internal users only - access_scope is checked on every call
+name: multistep_history
+version: 1.0.0
+owner: campaign-ops-eng
+domain: ops
+description: Block 9. Past Multi-Step participation, completion and incremental spend by cohort on this
+  brand and category.
+inputs:
+  brand_id: str
+  cohort: str?
+outputs:
+  brand_id: str
+  campaigns_in_category: int
+  by_cohort: dict
+binding: campaign_agent.skills.servers.ops:multistep_history
+target_binding: Campaign mart + causal uplift outputs (feat_multistep_outcome)
+sources:
+- campaign_mart
+freshness: On campaign close
+latency_sla_ms: 1500
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

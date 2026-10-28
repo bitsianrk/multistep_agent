@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "name": "taxonomy_lookup_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR002"
+      },
+      "expect": {
+        "brand_id": "BR002",
+        "name": "Golden Harvest",
+        "category_id": "CAT_CRISPS",
+        "category_name": "Crisps & Snacks",
+        "supplier": "Harvest Snacks plc",
+        "psgs": [
+          {
+            "psg_id": "PSG-BR002-01",
+            "name": "Golden Harvest Multipack Crisps"
+          },
+          {
+            "psg_id": "PSG-BR002-02",
+            "name": "Golden Harvest Sharing Bags"
+          },
+          {
+            "psg_id": "PSG-BR002-03",
+            "name": "Golden Harvest Single Bags"
+          },
+          {
+            "psg_id": "PSG-BR002-04",
+            "name": "Golden Harvest Baked Range"
+          },
+          {
+            "psg_id": "PSG-BR002-05",
+            "name": "Golden Harvest Tortilla Chips"
+          }
+        ]
+      }
+    }
+  ]
+}

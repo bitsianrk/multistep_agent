@@ -1,0 +1,71 @@
+{
+  "cases": [
+    {
+      "name": "brand_spc_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "cohort": "all",
+        "suppressed": false,
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "shoppers": 1710,
+        "trips": 3685,
+        "sales_6w": 12065.21,
+        "spc": 7.06,
+        "frequency": 2.15,
+        "spend_per_trip": 3.27,
+        "avg_basket_value": 42.39
+      }
+    },
+    {
+      "name": "brand_spc_2",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR003",
+        "cohort": "light"
+      },
+      "expect": {
+        "brand_id": "BR003",
+        "cohort": "light",
+        "suppressed": false,
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "shoppers": 817,
+        "trips": 960,
+        "sales_6w": 2997.2,
+        "spc": 3.67,
+        "frequency": 1.18,
+        "spend_per_trip": 3.12,
+        "avg_basket_value": 43.58
+      }
+    },
+    {
+      "name": "brand_spc_3",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "cohort": "lapsed"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "cohort": "lapsed",
+        "shoppers": 531,
+        "suppressed": false,
+        "spc": 0.0,
+        "spc_prior_6w": 7.67,
+        "frequency_prior_6w": 2.34,
+        "note": "Lapsed households have no brand spend in the window; prior-6-week SPC shown."
+      }
+    }
+  ]
+}

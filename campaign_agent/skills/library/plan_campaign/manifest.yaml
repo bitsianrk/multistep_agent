@@ -1,0 +1,27 @@
+# internal users only - access_scope is checked on every call
+name: plan_campaign
+version: 1.0.0
+owner: campaign-agent-platform
+domain: planning
+description: Builds the skill plan for a brand, objective and window, adding analyses the brand needs
+  (e.g. share falling -> lapsed-shopper analysis).
+inputs:
+  brand_id: str
+  objective: str
+  window_start: date
+  window_weeks: int
+outputs:
+  brand_id: str
+  steps: list
+  signals: dict
+binding: campaign_agent.skills.servers.planning:plan_campaign
+target_binding: Planner skill over the registry
+sources:
+- kantar_cache
+- taxonomy
+freshness: '-'
+latency_sla_ms: 2000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

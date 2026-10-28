@@ -1,0 +1,25 @@
+# internal users only - access_scope is checked on every call
+name: render_checkpoint
+version: 1.0.0
+owner: campaign-agent-platform
+domain: chat
+description: 'Renders a checkpoint card: summary, key numbers and the Approve / Ask / Edit / Send back
+  actions.'
+inputs:
+  stage: str
+  title: str
+  summary: list
+  key_numbers: list?
+  actions: list?
+  compact: bool?
+outputs:
+  text: str
+binding: campaign_agent.skills.servers.chat:render_checkpoint
+target_binding: Teams adaptive card / web chat card
+sources: []
+freshness: '-'
+latency_sla_ms: 500
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

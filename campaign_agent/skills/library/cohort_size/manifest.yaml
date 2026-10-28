@@ -1,0 +1,27 @@
+# internal users only - access_scope is checked on every call
+name: cohort_size
+version: 1.0.0
+owner: proposition-audience-ds
+domain: transactions
+description: Households in one audience cohort (lapsed, light, medium, heavy, category non-buyers), optionally
+  by lifestage.
+inputs:
+  brand_id: str
+  cohort: str
+  by: str?
+outputs:
+  brand_id: str
+  cohort: str
+  size: int?
+  suppressed: bool
+binding: campaign_agent.skills.servers.transactions:cohort_size
+target_binding: Databricks SQL count over feat_customer_brand_6w
+sources:
+- feat_customer_brand_6w
+- segmentation_weekly
+freshness: T-1
+latency_sla_ms: 3000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "name": "seasonality_index_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "window_start": "2026-11-16",
+        "window_weeks": 4
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "window": {
+          "start": "2026-11-16",
+          "weeks": 4
+        },
+        "history_weeks": 156,
+        "seasonality_index": 1.279
+      }
+    },
+    {
+      "name": "seasonality_index_2",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR007",
+        "window_start": "2026-07-06",
+        "window_weeks": 4
+      },
+      "expect": {
+        "brand_id": "BR007",
+        "window": {
+          "start": "2026-07-06",
+          "weeks": 4
+        },
+        "history_weeks": 156,
+        "seasonality_index": 1.088
+      }
+    }
+  ]
+}

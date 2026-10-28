@@ -1,0 +1,134 @@
+{
+  "cases": [
+    {
+      "name": "brand_scout_score_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "window_start": "2026-11-16",
+        "window_weeks": 4
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "window": {
+          "start": "2026-11-16",
+          "weeks": 4
+        },
+        "requested": {
+          "brand_id": "BR001",
+          "name": "Crunchwell",
+          "score": -0.666,
+          "drivers": {
+            "seasonal_fit": 1.279,
+            "market_momentum": -0.45,
+            "sentiment": -3.6,
+            "headroom": 45.7,
+            "margin": 25.7
+          }
+        },
+        "alternatives": [
+          {
+            "brand_id": "BR003",
+            "name": "Snapjack",
+            "score": 0.675,
+            "drivers": {
+              "seasonal_fit": 1.405,
+              "market_momentum": 0.5,
+              "sentiment": 6.9,
+              "headroom": 48.2,
+              "margin": 20.7
+            },
+            "beats_requested": true
+          },
+          {
+            "brand_id": "BR002",
+            "name": "Golden Harvest",
+            "score": -0.009,
+            "drivers": {
+              "seasonal_fit": 1.281,
+              "market_momentum": 0.02,
+              "sentiment": -0.5,
+              "headroom": 56.3,
+              "margin": 23.7
+            },
+            "beats_requested": true
+          }
+        ],
+        "weights": {
+          "seasonal_fit": 0.25,
+          "market_momentum": 0.25,
+          "sentiment": 0.2,
+          "headroom": 0.15,
+          "margin": 0.15
+        },
+        "kantar_period": "2026 P10",
+        "licence_scope": "tesco-internal"
+      }
+    },
+    {
+      "name": "brand_scout_score_2",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR004",
+        "window_start": "2026-11-16",
+        "window_weeks": 4
+      },
+      "expect": {
+        "brand_id": "BR004",
+        "window": {
+          "start": "2026-11-16",
+          "weeks": 4
+        },
+        "requested": {
+          "brand_id": "BR004",
+          "name": "Golden Bean",
+          "score": 0.113,
+          "drivers": {
+            "seasonal_fit": 1.181,
+            "market_momentum": 0.26,
+            "sentiment": 2.1,
+            "headroom": 40.1,
+            "margin": 31.9
+          }
+        },
+        "alternatives": [
+          {
+            "brand_id": "BR006",
+            "name": "Barista Bay",
+            "score": 0.031,
+            "drivers": {
+              "seasonal_fit": 1.19,
+              "market_momentum": -0.25,
+              "sentiment": -2.0,
+              "headroom": 60.8,
+              "margin": 32.8
+            },
+            "beats_requested": false
+          },
+          {
+            "brand_id": "BR005",
+            "name": "Morning Ritual",
+            "score": -0.144,
+            "drivers": {
+              "seasonal_fit": 1.19,
+              "market_momentum": -0.0,
+              "sentiment": -1.0,
+              "headroom": 47.6,
+              "margin": 29.8
+            },
+            "beats_requested": false
+          }
+        ],
+        "weights": {
+          "seasonal_fit": 0.25,
+          "market_momentum": 0.25,
+          "sentiment": 0.2,
+          "headroom": 0.15,
+          "margin": 0.15
+        },
+        "kantar_period": "2026 P10",
+        "licence_scope": "tesco-internal"
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# internal users only - access_scope is checked on every call
+name: resume_from_stage
+version: 1.0.0
+owner: campaign-agent-platform
+domain: planning
+description: Validates a send-back target and says which run state must be cleared to resume there.
+inputs:
+  brand_id: str
+  stage: str
+outputs:
+  stage: str
+  clears: list
+binding: campaign_agent.skills.servers.planning:resume_from_stage
+target_binding: Orchestrator state store
+sources: []
+freshness: '-'
+latency_sla_ms: 2000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

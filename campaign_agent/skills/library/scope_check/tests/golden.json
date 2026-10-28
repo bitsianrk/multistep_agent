@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "name": "scope_check_1",
+      "kind": "labelled",
+      "input": {
+        "brand_id": "BR001",
+        "claims": [
+          {
+            "text": "Exclude heavy shoppers",
+            "topic": "audience"
+          },
+          {
+            "text": "Set the step 1 threshold at GBP 8",
+            "topic": null
+          },
+          {
+            "text": "Switch brand to Snapjack",
+            "topic": "brand"
+          }
+        ]
+      },
+      "expect": {
+        "results": [
+          {
+            "in_scope": true
+          },
+          {
+            "in_scope": false
+          },
+          {
+            "in_scope": true
+          }
+        ]
+      }
+    }
+  ]
+}

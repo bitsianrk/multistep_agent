@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "name": "kantar_penetration_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "period": "2026 P10",
+        "period_end": "2026-10-04",
+        "licence_scope": "tesco-internal",
+        "penetration": 40.0,
+        "penetration_trend_pts": -0.7,
+        "history": [
+          {
+            "period": "2026 P10",
+            "penetration": 40.0
+          },
+          {
+            "period": "2026 P09",
+            "penetration": 40.4
+          },
+          {
+            "period": "2026 P08",
+            "penetration": 40.4
+          },
+          {
+            "period": "2026 P07",
+            "penetration": 40.7
+          },
+          {
+            "period": "2026 P06",
+            "penetration": 41.0
+          },
+          {
+            "period": "2026 P05",
+            "penetration": 41.2
+          }
+        ],
+        "panel_sample_households": 1391
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# internal users only - access_scope is checked on every call
+name: sentiment_scan
+version: 1.0.0
+owner: market-insight-ds
+domain: market
+description: Block 7. Net sentiment for the last 30 days vs the prior 30 days from reviews, social and
+  search trends.
+inputs:
+  brand_id: str
+outputs:
+  brand_id: str
+  net_sentiment_30d: float
+  sentiment_trend: float
+binding: campaign_agent.skills.servers.market:sentiment_scan
+target_binding: Batch ingest + LLM classification table sentiment_daily
+sources:
+- sentiment_daily
+freshness: Daily
+latency_sla_ms: 8000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

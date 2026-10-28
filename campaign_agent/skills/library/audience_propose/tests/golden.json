@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "name": "audience_propose_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "objective": "reactivate",
+        "cohort_sizes": {
+          "lapsed": 531,
+          "light": 855,
+          "medium": 513,
+          "heavy": 342,
+          "non_buyers": 1441
+        },
+        "response": {
+          "lapsed": {
+            "participation_pct": 14,
+            "incremental_spend_per_hh": 3.9
+          },
+          "heavy": {
+            "participation_pct": 47,
+            "incremental_spend_per_hh": 0.6
+          }
+        }
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "objective": "reactivate",
+        "cohorts": [
+          {
+            "cohort": "lapsed",
+            "label": "Lapsed",
+            "size": 531,
+            "include": true,
+            "score": 1.2,
+            "reason": "typical objective: reactivate; past Multi-Step: 14% participation, GBP 3.90 incremental/hh"
+          },
+          {
+            "cohort": "light",
+            "label": "Light",
+            "size": 855,
+            "include": true,
+            "score": 0.6,
+            "reason": "typical objective: grow frequency"
+          },
+          {
+            "cohort": "medium",
+            "label": "Medium",
+            "size": 513,
+            "include": false,
+            "score": 0.3,
+            "reason": "typical objective: grow spend"
+          },
+          {
+            "cohort": "non_buyers",
+            "label": "Category non-buyers",
+            "size": 1441,
+            "include": false,
+            "score": 0.1,
+            "reason": "typical objective: trial"
+          },
+          {
+            "cohort": "heavy",
+            "label": "Heavy",
+            "size": 342,
+            "include": false,
+            "score": -0.8,
+            "reason": "typical objective: retain; often excluded to limit subsidy; past Multi-Step: 47% participation, GBP 0.60 incremental/hh"
+          }
+        ],
+        "total_included": 1386
+      }
+    }
+  ]
+}

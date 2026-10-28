@@ -1,0 +1,6 @@
+langgraph>=1.0
+langgraph-checkpoint-sqlite>=2.0
+PyYAML>=6.0
+pytest>=8
+# optional: expose skills as MCP tools (python -m campaign_agent.mcp_server)
+mcp>=1.2

@@ -1,0 +1,27 @@
+# internal users only - access_scope is checked on every call
+name: seasonality_index
+version: 1.0.0
+owner: campaign-ops-eng
+domain: ops
+description: Block 6. Seasonality index for the window = expected weekly brand sales in the window / 52-week
+  mean, from 156 weeks of history; optionally per PSG.
+inputs:
+  brand_id: str
+  window_start: date
+  window_weeks: int
+  level: str?
+outputs:
+  brand_id: str
+  seasonality_index: float
+binding: campaign_agent.skills.servers.ops:seasonality_index
+target_binding: Precomputed seasonality table per PSG and ISO week
+sources:
+- feat_brand_week
+- feat_psg_week
+- seasonality_monthly
+freshness: Monthly
+latency_sla_ms: 1500
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

@@ -1,0 +1,22 @@
+# internal users only - access_scope is checked on every call
+name: spend_distribution
+version: 1.0.0
+owner: proposition-audience-ds
+domain: transactions
+description: Block 4. Percentiles of household brand spend and median inter-purchase interval, by cohort.
+inputs:
+  brand_id: str
+  cohort: str?
+outputs:
+  brand_id: str
+  by_cohort: dict
+binding: campaign_agent.skills.servers.transactions:spend_distribution
+target_binding: Databricks SQL percentile_approx over feat_customer_brand_6w
+sources:
+- feat_customer_brand_6w
+freshness: T-1
+latency_sla_ms: 3000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

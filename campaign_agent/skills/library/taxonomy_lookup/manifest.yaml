@@ -1,0 +1,23 @@
+# internal users only - access_scope is checked on every call
+name: taxonomy_lookup
+version: 1.0.0
+owner: product-knowledge
+domain: taxonomy
+description: 'Brand details from the product knowledge graph: category, supplier and PSGs.'
+inputs:
+  brand_id: str
+outputs:
+  brand_id: str
+  name: str
+  category_id: str
+  psgs: list
+binding: campaign_agent.skills.servers.taxonomy:taxonomy_lookup
+target_binding: Taxonomy graph
+sources:
+- taxonomy
+freshness: On range change
+latency_sla_ms: 1000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

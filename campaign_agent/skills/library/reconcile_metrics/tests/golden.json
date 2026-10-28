@@ -1,0 +1,63 @@
+{
+  "cases": [
+    {
+      "name": "reconcile_metrics_1",
+      "kind": "labelled",
+      "input": {
+        "brand_id": "BR001",
+        "pack": {
+          "blocks": {
+            "1": {
+              "data": {
+                "brand_shoppers": {
+                  "shoppers_6w": 100,
+                  "sales_6w_brand_week": 700.0,
+                  "lapsed_pool": 10,
+                  "period": {
+                    "end": "2026-10-25"
+                  }
+                }
+              }
+            },
+            "2": {
+              "data": {
+                "brand_spc": {
+                  "shoppers": 100,
+                  "spc": 7.0,
+                  "frequency": 2.0,
+                  "spend_per_trip": 3.5,
+                  "suppressed": false
+                }
+              }
+            },
+            "3": {
+              "data": {
+                "cohort_split": {
+                  "loyalty_tier": [
+                    {
+                      "cohort": "lapsed",
+                      "households": 10,
+                      "shoppers_pct": 9.0,
+                      "sales_pct": 0.0,
+                      "suppressed": false
+                    },
+                    {
+                      "cohort": "light",
+                      "households": 90,
+                      "shoppers_pct": 81.0,
+                      "sales_pct": 100.0,
+                      "suppressed": false
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "passed": false
+      }
+    }
+  ]
+}

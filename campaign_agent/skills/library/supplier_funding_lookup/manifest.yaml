@@ -1,0 +1,23 @@
+# internal users only - access_scope is checked on every call
+name: supplier_funding_lookup
+version: 1.0.0
+owner: commercial-analytics
+domain: commercial
+description: Block 8. Supplier funding rates by PSG and an indicative funding pool for the brand.
+inputs:
+  brand_id: str
+outputs:
+  brand_id: str
+  supplier: str
+  funding_by_psg_pct: dict
+  est_funding_pool_6w_gbp: float
+binding: campaign_agent.skills.servers.commercial:supplier_funding_lookup
+target_binding: Commercial mart supplier funding table
+sources:
+- commercial_mart
+freshness: Daily
+latency_sla_ms: 2000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

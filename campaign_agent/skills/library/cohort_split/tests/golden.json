@@ -1,0 +1,118 @@
+{
+  "cases": [
+    {
+      "name": "cohort_split_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR004"
+      },
+      "expect": {
+        "brand_id": "BR004",
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "loyalty_tier": [
+          {
+            "cohort": "lapsed",
+            "households": 252,
+            "shoppers_pct": 11.74,
+            "sales_pct": 0.0,
+            "suppressed": false
+          },
+          {
+            "cohort": "light",
+            "households": 948,
+            "shoppers_pct": 44.15,
+            "sales_pct": 20.5,
+            "suppressed": false
+          },
+          {
+            "cohort": "medium",
+            "households": 568,
+            "shoppers_pct": 26.46,
+            "sales_pct": 30.14,
+            "suppressed": false
+          },
+          {
+            "cohort": "heavy",
+            "households": 379,
+            "shoppers_pct": 17.65,
+            "sales_pct": 49.36,
+            "suppressed": false
+          }
+        ],
+        "lifestage": [
+          {
+            "cohort": "Young Adults",
+            "households": 422,
+            "shoppers_pct": 22.27,
+            "sales_pct": 22.49,
+            "suppressed": false
+          },
+          {
+            "cohort": "Families",
+            "households": 676,
+            "shoppers_pct": 35.67,
+            "sales_pct": 36.32,
+            "suppressed": false
+          },
+          {
+            "cohort": "Older Adults",
+            "households": 487,
+            "shoppers_pct": 25.7,
+            "sales_pct": 27.01,
+            "suppressed": false
+          },
+          {
+            "cohort": "Retired",
+            "households": 310,
+            "shoppers_pct": 16.36,
+            "sales_pct": 14.18,
+            "suppressed": false
+          }
+        ],
+        "value_segment": [
+          {
+            "cohort": "Value",
+            "households": 559,
+            "shoppers_pct": 29.5,
+            "sales_pct": 30.1,
+            "suppressed": false
+          },
+          {
+            "cohort": "Mainstream",
+            "households": 989,
+            "shoppers_pct": 52.19,
+            "sales_pct": 51.68,
+            "suppressed": false
+          },
+          {
+            "cohort": "Premium",
+            "households": 347,
+            "shoppers_pct": 18.31,
+            "sales_pct": 18.22,
+            "suppressed": false
+          }
+        ],
+        "clubcard_plus": [
+          {
+            "cohort": "Plus",
+            "households": 315,
+            "shoppers_pct": 16.62,
+            "sales_pct": 16.51,
+            "suppressed": false
+          },
+          {
+            "cohort": "Standard",
+            "households": 1580,
+            "shoppers_pct": 83.38,
+            "sales_pct": 83.49,
+            "suppressed": false
+          }
+        ]
+      }
+    }
+  ]
+}

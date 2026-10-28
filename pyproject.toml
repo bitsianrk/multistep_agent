@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "campaign-agent"
+version = "0.1.0"
+description = "Multi-Step Campaign Planning Agent: chat-triggered, human-in-the-loop LangGraph workflow to an Agreed Brief"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=1.0",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+campaign-agent = "campaign_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["campaign_agent*"]
+
+[tool.setuptools.package-data]
+campaign_agent = ["skills/library/*/SKILL.md", "skills/library/*/manifest.yaml", "skills/library/*/tests/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 140
