@@ -211,6 +211,25 @@ weekly tables are calibrated to them, so reconciliation is real arithmetic.
   faithfulness, time to Brief, tool calls, agent skill runs, **LLM share, fallbacks with
   reasons, and outputs rejected by guards**.
 
+## Web UI
+
+`campaign_agent/web/` holds the chat window from the design as a local web app: a Flask API
+over `CampaignSession`, and one static page with no build step and no CDN, so it works on
+the Tesco network.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/runs` | start a run from a chat message |
+| `POST /api/runs/<id>/reply` | answer the checkpoint |
+| `GET /api/runs/<id>` | the view model: stages, pending card, chat, plan, pack, discussion, brief, harness log, memory, audit |
+| `GET /api/runs/<id>/brief.json` | download the Agreed Brief |
+| `GET /api/memory` | episodic memory |
+
+All agent text is rendered as text, never as HTML. Kantar fields outside the licence scope
+are stripped from the view model. In production the Teams bot calls the same session API.
+
+![Diagnose checkpoint](images/ui_diagnose.png)
+
 ## Moving to production
 
 1. Set `LRM_EMPLOYEE_ID` and `LRM_API_KEY` on the Tesco network. `LRM_MODE=auto` then goes
@@ -218,6 +237,6 @@ weekly tables are calibrated to them, so reconciliation is real arithmetic.
 2. Swap each tool manifest's `binding` for its `target_binding` (Databricks SQL, the
    licensed Kantar feed, live stock, promo and price APIs). Skills, harness and graph do
    not change.
-3. Replace the CLI with the Teams bot / web chat (`CampaignSession` is the seam). Move
+3. Put the web UI behind Entra ID, or add the Teams bot on the same `CampaignSession` API. Move
    checkpoints to PostgreSQL or Cosmos DB and episodic memory to a store. Export `trace` and
    `harness_log` to OpenTelemetry.
