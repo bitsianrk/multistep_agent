@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "name": "render_checkpoint_1",
+      "kind": "snapshot",
+      "input": {
+        "stage": "plan",
+        "title": "Tool plan",
+        "summary": [
+          "one",
+          "two"
+        ],
+        "key_numbers": [
+          [
+            "SPC",
+            "GBP 7.06"
+          ]
+        ]
+      },
+      "expect": {
+        "stage": "plan",
+        "title": "Tool plan",
+        "summary": [
+          "one",
+          "two"
+        ],
+        "key_numbers": [
+          [
+            "SPC",
+            "GBP 7.06"
+          ]
+        ],
+        "actions": [
+          "Approve",
+          "Ask",
+          "Edit",
+          "Send back",
+          "Pause"
+        ],
+        "text": "[PLAN] Tool plan\n  one\n  two\n  Key numbers:\n    SPC  GBP 7.06\n  -> Approve / Ask / Edit / Send back / Pause"
+      }
+    }
+  ]
+}

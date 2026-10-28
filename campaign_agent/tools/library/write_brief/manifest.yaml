@@ -1,0 +1,23 @@
+# internal users only - access_scope is checked on every call
+name: write_brief
+version: 1.0.0
+owner: campaign-agent-platform
+domain: planning
+description: Writes the Agreed Brief JSON (the handoff contract) and the chat summary.
+inputs:
+  brand_id: str
+  decision: dict
+  pack: dict
+  approved_by: str?
+outputs:
+  brief: dict
+  summary_md: str
+binding: campaign_agent.tools.servers.planning:write_brief
+target_binding: Brief Writer tool
+sources: []
+freshness: '-'
+latency_sla_ms: 2000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

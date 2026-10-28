@@ -1,6 +1,6 @@
-"""Guardrails that sit outside individual skills.
+"""Guardrails that sit outside individual tools.
 
-Skill-level controls (role scope, minimum cell size, typed contracts) live in
+Tool-level controls (role scope, minimum cell size, typed contracts) live in
 the registry and the bindings. This module covers what is shown in chat and
 who may start a run.
 """

@@ -1,9 +1,9 @@
-"""Expose registry skills as MCP tools, one server per domain.
+"""Expose registry tools as MCP tools, one server per domain.
 
     python -m campaign_agent.mcp_server --domain transactions
     python -m campaign_agent.mcp_server            # every domain in one server
 
-The same skills then serve the LangGraph agents, a notebook, or an analyst
+The same tools then serve the LangGraph agents, a notebook, or an analyst
 assistant. Every MCP call still goes through the registry, so the role check,
 typed contract, latency SLA and provenance apply. The caller's role comes
 from CAMPAIGN_AGENT_ROLE (Entra ID in production).
@@ -18,7 +18,7 @@ import os
 from .config import DEFAULT_SETTINGS
 from .data import get_store
 from .guardrails import display_safe
-from .skills.registry import get_registry
+from .tools.registry import get_registry
 
 
 def _server_class():
@@ -35,12 +35,12 @@ def _server_class():
 def build_server(domain: str | None = None):
     registry = get_registry(DEFAULT_SETTINGS, get_store(DEFAULT_SETTINGS))
     names = [n for n in registry.names() if domain in (None, registry.get(n).domain)]
-    server = _server_class()(f"campaign-skills-{domain or 'all'}")
+    server = _server_class()(f"campaign-tools-{domain or 'all'}")
     role = os.environ.get("CAMPAIGN_AGENT_ROLE", "campaign_manager_role")
 
     for name in names:
-        skill = registry.get(name)
-        sig = inspect.signature(skill.fn)
+        tool = registry.get(name)
+        sig = inspect.signature(tool.fn)
         params = list(sig.parameters.values())[1:]  # drop ctx
 
         def make(n=name):
@@ -53,10 +53,10 @@ def build_server(domain: str | None = None):
 
         fn = make()
         fn.__name__ = name
-        fn.__doc__ = skill.description
+        fn.__doc__ = tool.description
         fn.__signature__ = sig.replace(parameters=params)
         fn.__annotations__ = {p.name: p.annotation for p in params if p.annotation is not inspect._empty}
-        server.add_tool(fn, name=name, description=skill.description)
+        server.add_tool(fn, name=name, description=tool.description)
     return server, names
 
 

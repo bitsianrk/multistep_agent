@@ -77,34 +77,34 @@ class PlannerAgent(Agent):
         return self.out("resume_from_stage", brand_id=brand_id, stage=stage)
 
     def apply_edits(self, plan: dict, edits: list[dict], registry_names: list[str]) -> tuple[dict, list[str]]:
-        """Plan edits are restricted to registry skills (prompt-injection guardrail)."""
-        from ..skills.servers.planning import BASE_PLAN, CORE_SKILLS, SKILL_AGENT
+        """Plan edits are restricted to registry tools (prompt-injection guardrail)."""
+        from ..tools.servers.planning import BASE_PLAN, CORE_TOOLS, TOOL_AGENT
 
         plan = {**plan, "steps": [dict(s) for s in plan["steps"]]}
         notes = []
         window = {"window_start": plan["window"]["start"], "window_weeks": plan["window"]["weeks"]}
-        windowed = {skill for _, skill, _, _, needs in BASE_PLAN if needs}
+        windowed = {tool for _, tool, _, _, needs in BASE_PLAN if needs}
         for e in edits:
-            if e["op"] == "remove_skill":
-                if e["skill"] in CORE_SKILLS:
-                    notes.append(f"{e['skill']} is a core ask (blocks 1-3) and stays in the plan.")
+            if e["op"] == "remove_tool":
+                if e["tool"] in CORE_TOOLS:
+                    notes.append(f"{e['tool']} is a core ask (blocks 1-3) and stays in the plan.")
                     continue
                 before = len(plan["steps"])
-                plan["steps"] = [s for s in plan["steps"] if s["skill"] != e["skill"]]
-                notes.append(f"Removed {e['skill']}." if len(plan["steps"]) < before
-                             else f"{e['skill']} was not in the plan.")
-            elif e["op"] == "add_skill":
-                if e["skill"] not in registry_names or e["skill"] not in SKILL_AGENT:
-                    notes.append(f"{e['skill']} is not a diagnostic skill in the registry; not added.")
+                plan["steps"] = [s for s in plan["steps"] if s["tool"] != e["tool"]]
+                notes.append(f"Removed {e['tool']}." if len(plan["steps"]) < before
+                             else f"{e['tool']} was not in the plan.")
+            elif e["op"] == "add_tool":
+                if e["tool"] not in registry_names or e["tool"] not in TOOL_AGENT:
+                    notes.append(f"{e['tool']} is not a diagnostic tool in the registry; not added.")
                     continue
-                if any(s["skill"] == e["skill"] and not s["params"].get("cut") for s in plan["steps"]):
-                    notes.append(f"{e['skill']} is already in the plan.")
+                if any(s["tool"] == e["tool"] and not s["params"].get("cut") for s in plan["steps"]):
+                    notes.append(f"{e['tool']} is already in the plan.")
                     continue
-                block = next((b for _, sk, b, _, _ in BASE_PLAN if sk == e["skill"]), None)
-                plan["steps"].append({"agent": SKILL_AGENT[e["skill"]], "skill": e["skill"], "block": block,
-                                      "params": dict(window) if e["skill"] in windowed else {},
+                block = next((b for _, sk, b, _, _ in BASE_PLAN if sk == e["tool"]), None)
+                plan["steps"].append({"agent": TOOL_AGENT[e["tool"]], "tool": e["tool"], "block": block,
+                                      "params": dict(window) if e["tool"] in windowed else {},
                                       "reason": "Added by campaign manager", "added_by": "human"})
-                notes.append(f"Added {e['skill']}.")
+                notes.append(f"Added {e['tool']}.")
         for i, s in enumerate(plan["steps"], start=1):
             s["id"] = f"s{i}"
         return plan, notes

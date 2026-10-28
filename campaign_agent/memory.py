@@ -1,7 +1,7 @@
 """Episodic memory: past runs and human overrides, used to re-weight scoring.
 
 Semantic memory is the taxonomy (data/taxonomy.py); procedural memory is the
-skill library. Overrides nudge audience, PSG-hero and Brand Scout scoring for
+tool library. Overrides nudge audience, PSG-hero and Brand Scout scoring for
 the same category in later runs; each nudge is small and capped.
 """
 
@@ -74,3 +74,18 @@ class EpisodicMemory:
             elif o["edit"]["op"] == "switch_brand" and not o["proposed"].get("switch"):
                 b -= STEP
         return max(-CAP, min(CAP, round(b, 2)))
+
+    def recall(self, category_id: str, last_runs: int = 3) -> dict:
+        """What agents are told about this category from earlier runs."""
+        runs = [r for r in self.data["runs"] if r.get("category_id") == category_id][-last_runs:]
+        counts: dict[str, int] = {}
+        for o in self._for(category_id):
+            e = o["edit"]
+            key = f"{e['op']}:{e.get('cohort') or e.get('psg_id') or e.get('brand_id') or ''}".rstrip(":")
+            counts[key] = counts.get(key, 0) + 1
+        return {
+            "past_runs": runs,
+            "human_overrides": counts,
+            "learned_bias": {"cohort": self.cohort_bias(category_id), "hero_psg": self.hero_bias(category_id),
+                             "brand_switch": self.switch_bias(category_id)},
+        }

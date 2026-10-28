@@ -30,8 +30,8 @@ CONCEDE_BELOW = {1: 0.6, 2: 0.8}  # strength under which a minority position con
 def _evidence(pack: dict, brand_id: str, requested_id: str, locked: bool) -> dict:
     b = pack["blocks"]
 
-    def get(block, skill, default=None):
-        return b.get(block, {}).get("data", {}).get(skill, default or {})
+    def get(block, tool, default=None):
+        return b.get(block, {}).get("data", {}).get(tool, default or {})
 
     scout = get("10", "brand_scout_score")
     alts = [a for a in scout.get("alternatives", []) if a["beats_requested"]]
@@ -199,7 +199,7 @@ class MarginAdvocate(Advocate):
         if brand_margin < 24 and ev["spc"]:
             # Advocates drift; the Judge catches this and logs it for the draft process.
             prop["claims"].append({"speaker": self.label, "topic": None, "cites": [2, 8],
-                                   "text": f"Keep the step-1 reward under 10% of SPC (GBP {ev['spc'] * 0.1:.2f}) "
+                                   "text": f"Keep the step-1 reward small relative to SPC (GBP {ev['spc']:.2f}) "
                                            "to protect margin."})
         return prop
 
@@ -230,9 +230,21 @@ class CustomerAdvocate(Advocate):
 ADVOCATES = [ReachAdvocate, MarginAdvocate, CustomerAdvocate]
 
 
-def propose(rt: AgentRuntime, pack: dict, brand_id: str, requested_id: str, locked: bool) -> dict:
+def evidence(pack: dict, brand_id: str, requested_id: str, locked: bool) -> dict:
+    return _evidence(pack, brand_id, requested_id, locked)
+
+
+def propose(rt: AgentRuntime, pack: dict, brand_id: str, requested_id: str, locked: bool,
+            advocate_fn=None) -> dict:
+    """advocate_fn(cls, ev) -> proposal lets the harness run each advocate on the LRM."""
     ev = _evidence(pack, brand_id, requested_id, locked)
-    proposals = [cls().propose(ev) for cls in ADVOCATES]
+    if advocate_fn is None:
+        proposals = [cls().propose(ev) for cls in ADVOCATES]
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=len(ADVOCATES), thread_name_prefix="advocate") as pool:
+            proposals = list(pool.map(lambda cls: advocate_fn(cls, ev), ADVOCATES))
     return {"brand_id": brand_id, "requested_id": requested_id, "locked": locked,
             "top_alternative": ev["top_alt"]["brand_id"] if ev["top_alt"] else None,
             "proposals": proposals}
@@ -298,7 +310,8 @@ def _baseline(pack: dict, item: str):
     return any(e["psg_id"] == key for e in pack["proposals"]["psgs"]["exclude"])
 
 
-def run_debate(rt: AgentRuntime, pack: dict, proposals: dict, human: dict | None) -> dict:
+def run_debate(rt: AgentRuntime, pack: dict, proposals: dict, human: dict | None, scope_fn=None) -> dict:
+    """scope_fn(claims) -> scope_check-shaped result lets the harness run the Judge on the LRM."""
     s = rt.settings
     participants = [dict(p, position=dict(p["position"])) for p in proposals["proposals"]]
     if human:
@@ -329,8 +342,8 @@ def run_debate(rt: AgentRuntime, pack: dict, proposals: dict, human: dict | None
                                        "text": f"Holds: {describe_item(item, p['position'][item], pack)}."})
         agr = agreement()
 
-    judge = CriticJudge(rt)
-    scope = judge.scope(pack["brand_id"], [{"text": c["text"], "topic": c["topic"]} for c in transcript])
+    claims = [{"text": c["text"], "topic": c["topic"]} for c in transcript]
+    scope = scope_fn(claims) if scope_fn else CriticJudge(rt).scope(pack["brand_id"], claims)
     notes = []
     for c, r in zip(transcript, scope["results"]):
         c["in_scope"] = r["in_scope"]

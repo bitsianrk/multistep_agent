@@ -1,0 +1,447 @@
+{
+  "cases": [
+    {
+      "name": "plan_campaign_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "objective": "reactivate",
+        "window_start": "2026-11-16",
+        "window_weeks": 4
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "objective": "reactivate",
+        "window": {
+          "start": "2026-11-16",
+          "weeks": 4
+        },
+        "signals": {
+          "kantar_share_trend_pts": -0.45,
+          "window_in_peak_weeks": true
+        },
+        "steps": [
+          {
+            "agent": "brand_diagnostics",
+            "tool": "brand_shoppers",
+            "block": 1,
+            "reason": "Core ask: brand shoppers, penetration, lapsed pool",
+            "params": {},
+            "added_by": "base",
+            "id": "s1"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "brand_shoppers",
+            "block": 1,
+            "params": {
+              "cut": "lapsed_recency"
+            },
+            "added_by": "planner",
+            "reason": "Kantar share falling (-0.45 pts) -> add lapsed-shopper analysis",
+            "id": "s2"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "brand_spc",
+            "block": 2,
+            "reason": "Core ask: spend per customer, frequency, spend per trip",
+            "params": {},
+            "added_by": "base",
+            "id": "s3"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "cohort_split",
+            "block": 3,
+            "reason": "Core ask: shoppers and sales by loyalty tier and segment",
+            "params": {},
+            "added_by": "base",
+            "id": "s4"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "spend_distribution",
+            "block": 4,
+            "reason": "Spend percentiles and purchase interval by cohort",
+            "params": {},
+            "added_by": "base",
+            "id": "s5"
+          },
+          {
+            "agent": "qualifying_psg",
+            "tool": "psg_score",
+            "block": 5,
+            "reason": "Reach and momentum per PSG for hero selection",
+            "params": {},
+            "added_by": "base",
+            "id": "s6"
+          },
+          {
+            "agent": "qualifying_psg",
+            "tool": "stock_check",
+            "block": 5,
+            "reason": "Hard filter: forecast stock cover for the window",
+            "params": {
+              "window_start": "2026-11-16",
+              "window_weeks": 4
+            },
+            "added_by": "base",
+            "id": "s7"
+          },
+          {
+            "agent": "qualifying_psg",
+            "tool": "promo_clash_check",
+            "block": 5,
+            "reason": "Hard filter: live promotions overlapping the window",
+            "params": {
+              "window_start": "2026-11-16",
+              "window_weeks": 4
+            },
+            "added_by": "base",
+            "id": "s8"
+          },
+          {
+            "agent": "performance_memory",
+            "tool": "seasonality_index",
+            "block": 6,
+            "reason": "Seasonal strength of the brand in the window",
+            "params": {
+              "window_start": "2026-11-16",
+              "window_weeks": 4
+            },
+            "added_by": "base",
+            "id": "s9"
+          },
+          {
+            "agent": "market_intelligence",
+            "tool": "kantar_share",
+            "block": 7,
+            "reason": "Kantar value share and trend vs category",
+            "params": {},
+            "added_by": "base",
+            "id": "s10"
+          },
+          {
+            "agent": "market_intelligence",
+            "tool": "kantar_penetration",
+            "block": 7,
+            "reason": "Kantar penetration and trend",
+            "params": {},
+            "added_by": "base",
+            "id": "s11"
+          },
+          {
+            "agent": "market_intelligence",
+            "tool": "sentiment_scan",
+            "block": 7,
+            "reason": "Net sentiment trend from reviews, social, search",
+            "params": {},
+            "added_by": "base",
+            "id": "s12"
+          },
+          {
+            "agent": "commercial",
+            "tool": "margin_after_funding",
+            "block": 8,
+            "reason": "Margin after supplier funding per PSG (margin floor)",
+            "params": {},
+            "added_by": "base",
+            "id": "s13"
+          },
+          {
+            "agent": "commercial",
+            "tool": "supplier_funding_lookup",
+            "block": 8,
+            "reason": "Supplier funding available for the brand",
+            "params": {},
+            "added_by": "base",
+            "id": "s14"
+          },
+          {
+            "agent": "performance_memory",
+            "tool": "multistep_history",
+            "block": 9,
+            "reason": "Past Multi-Step response by cohort",
+            "params": {},
+            "added_by": "base",
+            "id": "s15"
+          },
+          {
+            "agent": "brand_scout",
+            "tool": "category_brands",
+            "block": 10,
+            "reason": "Other brands in the category",
+            "params": {},
+            "added_by": "base",
+            "id": "s16"
+          },
+          {
+            "agent": "brand_scout",
+            "tool": "brand_scout_score",
+            "block": 10,
+            "reason": "Rank alternatives on seasonal and market signals",
+            "params": {
+              "window_start": "2026-11-16",
+              "window_weeks": 4
+            },
+            "added_by": "base",
+            "id": "s17"
+          },
+          {
+            "agent": "audience",
+            "tool": "cohort_size",
+            "block": null,
+            "reason": "Size each candidate cohort",
+            "params": {},
+            "added_by": "base",
+            "id": "s18"
+          },
+          {
+            "agent": "audience",
+            "tool": "audience_propose",
+            "block": null,
+            "reason": "Propose cohorts with sizes and rationale",
+            "params": {},
+            "added_by": "base",
+            "id": "s19"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "spend_distribution",
+            "block": 4,
+            "params": {
+              "cohort": "lapsed"
+            },
+            "added_by": "planner",
+            "reason": "Objective is reactivate -> pre-lapse spend of the lapsed pool",
+            "id": "s20"
+          },
+          {
+            "agent": "performance_memory",
+            "tool": "seasonality_index",
+            "block": 6,
+            "params": {
+              "window_start": "2026-11-16",
+              "window_weeks": 4,
+              "level": "psg"
+            },
+            "added_by": "planner",
+            "reason": "Window covers peak weeks -> PSG-level seasonality for hero picks",
+            "id": "s21"
+          }
+        ]
+      }
+    },
+    {
+      "name": "plan_campaign_2",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR004",
+        "objective": "trial",
+        "window_start": "2027-01-04",
+        "window_weeks": 6
+      },
+      "expect": {
+        "brand_id": "BR004",
+        "objective": "trial",
+        "window": {
+          "start": "2027-01-04",
+          "weeks": 6
+        },
+        "signals": {
+          "kantar_share_trend_pts": 0.26,
+          "window_in_peak_weeks": false
+        },
+        "steps": [
+          {
+            "agent": "brand_diagnostics",
+            "tool": "brand_shoppers",
+            "block": 1,
+            "reason": "Core ask: brand shoppers, penetration, lapsed pool",
+            "params": {},
+            "added_by": "base",
+            "id": "s1"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "brand_spc",
+            "block": 2,
+            "reason": "Core ask: spend per customer, frequency, spend per trip",
+            "params": {},
+            "added_by": "base",
+            "id": "s2"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "cohort_split",
+            "block": 3,
+            "reason": "Core ask: shoppers and sales by loyalty tier and segment",
+            "params": {},
+            "added_by": "base",
+            "id": "s3"
+          },
+          {
+            "agent": "brand_diagnostics",
+            "tool": "spend_distribution",
+            "block": 4,
+            "reason": "Spend percentiles and purchase interval by cohort",
+            "params": {},
+            "added_by": "base",
+            "id": "s4"
+          },
+          {
+            "agent": "qualifying_psg",
+            "tool": "psg_score",
+            "block": 5,
+            "reason": "Reach and momentum per PSG for hero selection",
+            "params": {},
+            "added_by": "base",
+            "id": "s5"
+          },
+          {
+            "agent": "qualifying_psg",
+            "tool": "stock_check",
+            "block": 5,
+            "reason": "Hard filter: forecast stock cover for the window",
+            "params": {
+              "window_start": "2027-01-04",
+              "window_weeks": 6
+            },
+            "added_by": "base",
+            "id": "s6"
+          },
+          {
+            "agent": "qualifying_psg",
+            "tool": "promo_clash_check",
+            "block": 5,
+            "reason": "Hard filter: live promotions overlapping the window",
+            "params": {
+              "window_start": "2027-01-04",
+              "window_weeks": 6
+            },
+            "added_by": "base",
+            "id": "s7"
+          },
+          {
+            "agent": "performance_memory",
+            "tool": "seasonality_index",
+            "block": 6,
+            "reason": "Seasonal strength of the brand in the window",
+            "params": {
+              "window_start": "2027-01-04",
+              "window_weeks": 6
+            },
+            "added_by": "base",
+            "id": "s8"
+          },
+          {
+            "agent": "market_intelligence",
+            "tool": "kantar_share",
+            "block": 7,
+            "reason": "Kantar value share and trend vs category",
+            "params": {},
+            "added_by": "base",
+            "id": "s9"
+          },
+          {
+            "agent": "market_intelligence",
+            "tool": "kantar_penetration",
+            "block": 7,
+            "reason": "Kantar penetration and trend",
+            "params": {},
+            "added_by": "base",
+            "id": "s10"
+          },
+          {
+            "agent": "market_intelligence",
+            "tool": "sentiment_scan",
+            "block": 7,
+            "reason": "Net sentiment trend from reviews, social, search",
+            "params": {},
+            "added_by": "base",
+            "id": "s11"
+          },
+          {
+            "agent": "commercial",
+            "tool": "margin_after_funding",
+            "block": 8,
+            "reason": "Margin after supplier funding per PSG (margin floor)",
+            "params": {},
+            "added_by": "base",
+            "id": "s12"
+          },
+          {
+            "agent": "commercial",
+            "tool": "supplier_funding_lookup",
+            "block": 8,
+            "reason": "Supplier funding available for the brand",
+            "params": {},
+            "added_by": "base",
+            "id": "s13"
+          },
+          {
+            "agent": "performance_memory",
+            "tool": "multistep_history",
+            "block": 9,
+            "reason": "Past Multi-Step response by cohort",
+            "params": {},
+            "added_by": "base",
+            "id": "s14"
+          },
+          {
+            "agent": "brand_scout",
+            "tool": "category_brands",
+            "block": 10,
+            "reason": "Other brands in the category",
+            "params": {},
+            "added_by": "base",
+            "id": "s15"
+          },
+          {
+            "agent": "brand_scout",
+            "tool": "brand_scout_score",
+            "block": 10,
+            "reason": "Rank alternatives on seasonal and market signals",
+            "params": {
+              "window_start": "2027-01-04",
+              "window_weeks": 6
+            },
+            "added_by": "base",
+            "id": "s16"
+          },
+          {
+            "agent": "audience",
+            "tool": "cohort_size",
+            "block": null,
+            "reason": "Size each candidate cohort",
+            "params": {},
+            "added_by": "base",
+            "id": "s17"
+          },
+          {
+            "agent": "audience",
+            "tool": "audience_propose",
+            "block": null,
+            "reason": "Propose cohorts with sizes and rationale",
+            "params": {},
+            "added_by": "base",
+            "id": "s18"
+          },
+          {
+            "agent": "audience",
+            "tool": "cohort_size",
+            "block": null,
+            "params": {
+              "cohort": "non_buyers",
+              "by": "lifestage"
+            },
+            "added_by": "planner",
+            "reason": "Objective is trial -> category non-buyers by lifestage",
+            "id": "s19"
+          }
+        ]
+      }
+    }
+  ]
+}

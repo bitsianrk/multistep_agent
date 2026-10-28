@@ -1,48 +1,156 @@
 # Multi-Step Campaign Planning Agent: Workflow & Architecture
 
 This is the implementation of the *Campaign Planning Agent: Workflow & Architecture* plan
-(Oct 28, 2026). It covers the whole Phase 1 MVP (chat, checkpoints, diagnostics, PSG and
-audience picks) and the Phase 2 pieces (Kantar skills, debate panel and judge, Brand Scout),
-all running on **seeded synthetic data**. Every brand, number and feed is fictional.
+(Oct 28, 2026). It runs on **seeded synthetic data**: every brand, number and feed is
+fictional. The agents run on Tesco's LRM through the same API setup as the PR coupon design
+agent (`tesco_e2e_personalisation_agent`).
 
-The run starts from a chat message and ends at an **Agreed Brief**: target brand, audience
-and PSGs. The Brief goes to the external process that builds the Recommendation Draft.
+A run starts from a chat message and ends at an **Agreed Brief**: target brand, audience and
+PSGs. The Brief goes to the external process that builds the Recommendation Draft.
+
+## Three layers: skills, harness, tools
+
+| Layer | What it is | Where |
+|---|---|---|
+| **Skills** | `SKILL.md` files that tell an agent *what to do*: its role, procedure, rules, which tools it may use, and the output contract. The body becomes the agent's system prompt. | `campaign_agent/skills/<name>/SKILL.md` (16) plus the shared `skills/HARNESS.md` preamble |
+| **Harness** | Runs a skill as a ReAct loop on the LRM. Builds a state- and memory-aware prompt, exposes tools, parses `TOOL:`/`ARGS:` replies, guards the output, and falls back deterministically. | `campaign_agent/harness/` |
+| **Tools** | Capabilities with typed contracts: data access, scoring and checks. Each has `TOOL.md` + `manifest.yaml` + golden tests, and is servable over MCP. | `campaign_agent/tools/library/<tool>/` (28) |
+
+Agents own judgement (skills); tools own capability. The registry still enforces each agent's
+tool allow-list (`agents/base.py:ROSTER`), role scope, typed inputs and outputs, SLA timeouts
+and the run budget, whoever calls: the harness, a deterministic policy, or an MCP client.
+
+### The skills
+
+| Skill | Agent | Stage | Decides |
+|---|---|---|---|
+| `chat-gateway` | Chat Gateway | every checkpoint | what the human's reply means: approve / ask / edit / send back / pause, mapped onto the closed edit vocabulary |
+| `entity-resolution` | Entity Resolution | 1 | one brand, objective and window, or the questions to ask back |
+| `campaign-planner` | Campaign Planning Agent | 2 | the tool plan for this brand |
+| `brand-diagnostics`, `qualifying-psg`, `market-intelligence`, `commercial`, `performance-memory`, `brand-scout` | the six specialists | 3 | findings and watch-items from their pack blocks |
+| `audience` | Audience Agent | 3 | which cohorts to propose, with reasons |
+| `pack-analyst` | Pack Analyst | any "ask" | an answer from the pack, or one more cut |
+| `reach-advocate`, `margin-advocate`, `customer-advocate` | debate panel | 4 | each advocate's brand / audience / PSG position, claims and strength |
+| `critic-judge` | Critic / Judge | 4 | which claims are in scope |
+| `brief-writer` | Brief Writer | 5 | the Brief summary the human approves (the JSON contract stays deterministic via `write_brief`) |
+
+What stays deterministic on purpose: execution of the approved tool plan, PSG hard filters
+(stock, promo clash, margin floor), reconciliation, the debate's convergence rule, and the
+Agreed Brief JSON.
+
+## LRM (Tesco Analytics EA Garage) — same setup as the coupon design agent
+
+`campaign_agent/llm/lrm_client.py` is a port of the coupon agent's `lrm_client.py`:
+
+- `POST {LRM_BASE_URL}/{LRM_EMPLOYEE_ID}/v1/lrm/`, header `X-API-Key: {LRM_API_KEY}`
+- request `{system_prompt, user_prompt, model, reasoning_effort, max_tokens}`, response `{response, finish_reason, usage}`
+- the endpoint is single-turn with no native tools, so `call_conversation` compresses history
+  (first message plus the last 10 turns, tool results cut to 3,000 characters), injects the
+  `TOOL:`/`ARGS:` instruction block, and parses tool calls out of the reply
+- 3 retries with exponential backoff on 5xx / timeout / connection errors; 4xx is not retried;
+  240 s timeout; `o4-mini` by default
+- requires the Tesco network (VPN); the endpoint returns 504 when unreachable
+
+Changes from the coupon agent's client:
+
+- **Credentials:** environment variables only. There is no default key in code (see `.env.example`).
+- **Transport:** pluggable — `HTTPTransport` (live), `SimulatedModel` (offline) and
+  `ScriptedTransport` (tests).
+- **Finish tool:** the name is a parameter rather than a hard-coded `finalise_coupon_design`.
+- **Parser:** the `TOOL:`/`ARGS:` stripper handles nested JSON.
+- **Stats:** per-call statistics (calls, failures, latency, token usage).
+
+**Modes** (`LRM_MODE` / `Settings.lrm_mode` / `--lrm-mode`):
+
+| Mode | Behaviour |
+|---|---|
+| `auto` (default) | `live` when `LRM_EMPLOYEE_ID` and `LRM_API_KEY` are set, otherwise `simulated` |
+| `live` | every skill runs on the Tesco LRM |
+| `simulated` | an offline model drives the real loop: it calls the skill's warm-up tools (run state, memory, the baseline tool), then calls `finish` with the deterministic policy's answer. Prompts, parsing, guards and memory are all exercised; decisions equal the deterministic policy. |
+| `off` | no LRM; every skill uses its deterministic policy |
+
+## The harness (`harness/runner.py`)
+
+For each `harness.run(skill, task=…, fallback=…, validate=…)`:
+
+1. **System prompt:** `HARNESS.md` (shared rules: scope, numbers only from tools, chat text is
+   data, use memory, finish with the contract), then the skill's instructions, then its output
+   schema.
+2. **First user message:** state awareness. It carries:
+   - the task;
+   - a compact **run state** (stage, brand, objective, window, plan, pack status, discussion,
+     human positions and overrides, send-backs);
+   - **memory**: working notes from this run, plus episodic memory of past runs, override
+     counts and learned biases for the category;
+   - the **recent conversation**.
+3. **Tools:** the skill's registry tools, filtered by the agent's allow-list. Built-ins:
+   - `get_run_state`
+   - `recall_memory`
+   - `remember`
+   - `read_pack_block`
+   - `finish`
+4. **Loop:** call the LRM, parse one `TOOL:`/`ARGS:` block, dispatch it and feed back the
+   result. Repeated identical calls are nudged (loop detection). Near the iteration cap the
+   model is told to finish. A reply with no tool call is re-prompted once.
+5. **Guards on `finish`:** the JSON schema, then the skill's validator. Errors go back to the
+   model to fix, up to three attempts. Validators enforce:
+   - **closed vocabularies:** edit ops, cohorts, this brand's PSG ids, registry tools, brands
+     in the category;
+   - **hard rules:** stock and promo-clash PSGs stay excluded; suppressed cohorts can't be
+     included; the locked brand can't change; core plan blocks stay; the Judge can only
+     tighten the rule-based scope check;
+   - **faithfulness:** every number in model text must trace to a tool result, the pack or
+     the task, at its written precision. Cohort totals are allowed.
+6. **Fallback:** if the LRM is off or unreachable, or never produces valid output, the
+   agent's deterministic policy answers and the run continues. Each run is logged in
+   `harness_log` (skill, source `llm`/`fallback`, reason, iterations, tools used, outputs
+   rejected).
+
+## State and memory
+
+| Kind | Contents | Lifetime | Where |
+|---|---|---|---|
+| Run state | everything in `RunState`, checkpointed by LangGraph after every node | the run; with `--db` it survives restarts (pause/resume) | `graph.py`, SQLite or in-memory saver |
+| Working memory | notes agents save with `remember`, plus the campaign manager's `note: …` edits | the run (in state); summarised into the episodic run record at handoff | `state.working_memory` |
+| Conversation | the chat transcript, with the last 8 turns in every prompt | the run | `state.chat` |
+| Episodic | past runs (brand requested/selected, objective, overrides, notes, LLM share) and every human override | across runs | `memory.py` → `runs/memory.json` |
+| Semantic | the product taxonomy | static | `data/taxonomy.py` |
+| Procedural | skills (`SKILL.md`) and tools | versioned in git | `skills/`, `tools/library/` |
+
+Learning: overrides re-weight audience scoring (`cohort_bias`), hero PSGs (`hero_bias`) and
+the Brand Scout switch bar (`switch_bias`) for the category. The bias also reaches agents
+through `recall_memory`, so the Audience Agent can say "campaign managers kept adding Medium".
 
 ## End-to-end workflow
 
 ![Workflow](images/workflow.png)
 
-| Stage | Agent(s) | Human checkpoint | Output | Code |
+| Stage | Agent(s) | Human checkpoint | Output | Graph nodes |
 |---|---|---|---|---|
-| 1 · Understand | Entity Resolution Agent | confirms brand and objective, answers clarifications | one brand ID, objective, window | `agents/understand.py`, node `understand` / `cp_understand` |
-| 2 · Plan | Campaign Planning Agent | approves or edits the skill plan before it runs | skill plan | `plan_campaign` skill, node `plan` / `cp_plan` |
-| 3 · Diagnose | 6 skill agents in parallel + Audience Agent, then Critic | questions numbers, asks for extra cuts | Diagnostic Pack | `agents/diagnose.py`, node `diagnose` / `cp_diagnose` |
-| 4 · Discuss | Reach, Margin, Customer advocates + Judge, human as participant | adds a position, overrides, sends back | decisions on brand, audience, PSGs | `agents/debate.py`, nodes `propose` / `cp_proposals` / `debate` / `cp_discuss` |
-| 5 · Agreed Brief | Brief Writer | approves, which triggers the handoff | Agreed Brief (JSON + summary) | `write_brief` skill, node `brief` / `cp_brief` / `handoff` |
-| External | Recommendation Draft process | n/a | Recommendation Draft | `handoff.py` (file sink by default) |
+| 1 · Understand | Entity Resolution | confirms brand and objective, answers clarifications | one brand ID, objective, window | `understand` / `cp_understand` |
+| 2 · Plan | Campaign Planning Agent | approves or edits the tool plan | tool plan | `plan` / `cp_plan` |
+| 3 · Diagnose | 6 specialists run their plan steps in parallel, then write findings; Audience Agent proposes; Critic reconciles | questions numbers, asks for extra cuts | Diagnostic Pack + findings | `diagnose` / `cp_diagnose` |
+| 4 · Discuss | Reach, Margin, Customer advocates + Judge, human as participant | adds a position, overrides, sends back | decisions on brand, audience, PSGs | `propose` / `cp_proposals` / `debate` / `cp_discuss` |
+| 5 · Agreed Brief | Brief Writer | approves, which triggers the handoff | Agreed Brief (JSON + summary) | `brief` / `cp_brief` / `handoff` |
 
-When a brand switch is agreed in Discuss, the run goes back to Diagnose and the pack is
-rebuilt for the new brand. The brand is then locked (`max_brand_switches`).
+Each `cp_*` node calls LangGraph `interrupt()` and resumes with `Command(resume=reply)`. A
+brand switch agreed in Discuss sends the run back to Diagnose for the new brand, and the
+brand is then locked (`max_brand_switches`).
 
-### What the human can do at any checkpoint
-
-The Chat Gateway's `route_message` skill classifies every reply into one of these actions.
-The chat text is data and maps onto a closed set of edit operations.
-
-| Action | Example | Effect |
+| Human action | Example | Effect |
 |---|---|---|
-| Approve | "Plan looks right, go" | moves to the next stage |
-| Ask | "What is SPC for lapsed shoppers only?" | the stage's agent answers from the pack, or calls one more skill (`brand_spc(cohort=…)`) and adds it to `pack.extra_cuts` |
-| Edit | "Drop the heavy cohort", "exclude tortilla chips", "make sharing bags a hero", "add sentiment_scan", "objective grow", "note: …" | updates state and re-validates, then shows the same checkpoint again |
-| Send back | "Try Snapjack instead", "send back to plan" | jumps to an earlier stage with the new input (`resume_from_stage` says what to clear) |
-| Pause | "pause" | state stays checkpointed; with `--db` the run resumes in a later session |
+| Approve | "Plan looks right, go" | next stage |
+| Ask | "What is SPC for lapsed shoppers only?" | `pack-analyst` answers from the pack or runs one more cut (kept in `pack.extra_cuts`) |
+| Edit | "drop the heavy cohort", "yes, but lose the heavies", "make sharing bags a hero", "add sentiment_scan", "note: …" | state updated, same checkpoint shown again |
+| Send back | "Try Snapjack instead", "send back to plan" | jump to the earlier stage with the new input |
+| Pause | "pause" | the checkpoint waits; with `--db` it resumes in a later session |
 
 ## Diagnostic Pack
 
-| # | Block | Skills | Agent |
+| # | Block | Tools | Agent |
 |---|---|---|---|
-| 1 | Brand shoppers | `brand_shoppers` (+ `cut=lapsed_recency` when Kantar share is falling) | Brand Diagnostics |
-| 2 | SPC | `brand_spc` (optional cohort filter) | Brand Diagnostics |
+| 1 | Brand shoppers | `brand_shoppers` (+ `cut=lapsed_recency` when Kantar share falls) | Brand Diagnostics |
+| 2 | SPC | `brand_spc` | Brand Diagnostics |
 | 3 | Cohort split | `cohort_split` | Brand Diagnostics |
 | 4 | Spend distribution | `spend_distribution` | Brand Diagnostics |
 | 5 | Qualifying PSGs | `psg_score`, `stock_check`, `promo_clash_check` | Qualifying PSG |
@@ -52,132 +160,64 @@ The chat text is data and maps onto a closed set of edit operations.
 | 9 | Multi-Step history | `multistep_history` | Performance Memory |
 | 10 | Brand alternatives | `category_brands`, `brand_scout_score` | Brand Scout |
 
-Each block carries provenance (`source`, `as_of`) from the skill manifests, and the Brief lists
-it per block. The Critic's `reconcile_metrics` checks every pack before the human sees it:
-cohort shares sum to 100%, shoppers × SPC ≈ brand-week sales, frequency × spend per trip = SPC,
-block 1 and block 2 shopper counts agree, the lapsed pool agrees with the cohort split, and the
-Kantar period lines up with the diagnostics window.
+Every block carries provenance. The Critic's `reconcile_metrics` checks:
 
-**PSG rules** (`QualifyingPSGAgent.propose`). The default basket is the whole brand. Hard
-filters exclude PSGs below the stock-cover threshold, PSGs on a live promotion overlapping the
-window (double discount), and PSGs below the margin floor. Hero PSGs are ranked by
-reach × momentum, multiplied by PSG seasonality when the window covers peak weeks.
+- cohort shares sum to 100%;
+- shoppers × SPC ≈ brand-week sales;
+- frequency × spend per trip = SPC;
+- the block 1 and block 2 shopper counts agree;
+- the lapsed pool agrees with the cohort split;
+- the Kantar period lines up with the diagnostics window.
 
-**Audience** (`audience_propose`). Each cohort gets an objective prior plus a past-response
-term plus a learned bias from earlier human overrides. Cohorts below the minimum cell size
-cannot be included.
+PSG hard filters are stock cover, live-promotion clash and the margin floor. Brand Scout
+z-scores seasonal fit, Kantar momentum, sentiment, headroom and margin within the category.
 
-**Brand Scout** (`brand_scout_score`). It runs on every request and z-scores seasonal fit,
-Kantar momentum, sentiment trend, headroom and margin within the category. An alternative
-"beats" the requested brand only with a score lead and a better seasonal fit or momentum.
+## Data layer (dummy)
 
-## Agents and skills
+`data/generator.py` builds the following from a seed:
 
-Agents own judgement and skills own capability. `agents/base.py:ROSTER` holds each agent's
-persona and allow-list, and the registry refuses any call outside it. There are 28 skills in
-`campaign_agent/skills/library/<skill>/`:
+- `feat_customer_brand_6w`, `feat_brand_week` and `feat_psg_week` (156 weeks);
+- the campaign mart;
+- segmentation;
+- stock, promotions and price snapshots;
+- the commercial mart;
+- the Kantar cache (13 periods, licence-scoped);
+- the sentiment feed.
 
-```
-SKILL.md           when to use / when not / inputs / outputs / caveats (what the planner reads)
-manifest.yaml      owner, version, typed inputs + outputs, binding, sources, freshness,
-                   latency SLA, access scope, mechanics enabled
-tests/golden.json  golden cases (snapshot + hand-labelled), run in CI
-```
-
-Bindings are grouped as one MCP server per domain in `skills/servers/`: `transactions`,
-`commercial`, `market`, `ops`, `taxonomy`, `planning` and `chat`. Each manifest records the
-production `target_binding` (Databricks SQL, Kantar feed, live APIs) next to today's dummy
-binding. `python -m campaign_agent.mcp_server --domain market` serves the same skills to
-notebooks or an analyst assistant.
-
-The registry (`skills/registry.py`) enforces the following on every call:
-
-- the agent's allow-list;
-- the role in `access_scope` (internal campaign managers only);
-- the typed input contract and the output contract;
-- the latency SLA as a timeout;
-- the per-run skill-call budget.
-
-It also attaches provenance to every result.
-
-## Data layer
-
-`data/generator.py` builds everything from a seed. Household-level rows come first, and the
-weekly tables are calibrated to them, so reconciliation is real arithmetic:
-
-| Design table / feed | Dummy implementation |
-|---|---|
-| `feat_customer_brand_6w` | about 17k household × brand rows: trips, spend, prior 6 weeks, PSG split, loyalty tier |
-| `feat_brand_week`, `feat_psg_week` | 156 weeks with category seasonality and brand / PSG trends |
-| `feat_multistep_outcome` / campaign mart | 2 past campaigns per brand, response by cohort |
-| Segmentation snapshot | lifestage, value segment, Clubcard Plus per household |
-| Stock API, promotions API, price API | snapshot at T-1 09:00 (cover weeks, live promos, shelf price) |
-| Commercial mart | margin and supplier funding per PSG |
-| Kantar / Worldpanel | 13 four-weekly periods; cached per release period; `licence_scope` on every figure |
-| Sentiment feed | 90 days of daily net sentiment |
-| Product taxonomy | `data/taxonomy.py`: 3 categories, 9 fictional brands, 45 PSGs |
-
-## What makes it agentic
-
-| Capability | Where |
-|---|---|
-| Chat trigger and control surface | `session.py`, `cli.py` |
-| Plan per brand | `plan_campaign` adds lapsed-shopper analysis when Kantar share falls, objective-specific cuts, and PSG seasonality for peak windows |
-| Tool choice within allow-lists | `ROSTER` + registry |
-| Clarification | Entity Resolution asks back on ambiguous brands ("Golden") or a missing objective |
-| Self-verification | Critic `reconcile_metrics`; Judge checks that claim citations exist in the pack |
-| Challenge the premise | Brand Scout plus the advocates can win a switch, which re-runs the pack |
-| Human as participant | a checkpoint after every stage; the human's position joins the debate; the human's final call overrides the Judge |
-| Memory | episodic (`memory.py`: runs and overrides), semantic (taxonomy), procedural (skill library) |
-| Learning | overrides re-weight audience (`cohort_bias`), hero PSGs (`hero_bias`) and Brand Scout (`switch_bias`) for the category |
-
-**Checkpoints** (`graph.py`). Each `cp_*` node calls LangGraph `interrupt()`. State is
-checkpointed (in memory, or SQLite with `--db`), and the reply resumes the graph with
-`Command(resume=…)`.
-
-**Debate protocol.** Three advocates propose, citing blocks. The human may add a position.
-Up to `max_debate_rounds` critique rounds follow: a minority position concedes when its
-strength is below the round's threshold and holds otherwise. The panel converges when the
-share of unanimous items reaches `convergence_tolerance`. Off-scope claims (thresholds,
-rewards, coupons…) are rejected by `scope_check` and logged in `notes_for_draft`. Remaining
-dissent goes into the Brief.
-
-**Autonomy ladder.** `autonomy_level="L1"` (default) waits at every checkpoint. `"L2"`
-auto-advances stages 1–3 when confidence is high: the brand is resolved with no assumed
-window, and the pack reconciled with no errors.
+It covers 3 categories, 9 fictional brands and 45 PSGs. Household rows come first and the
+weekly tables are calibrated to them, so reconciliation is real arithmetic.
 
 ## Guardrails
 
 | Risk | Control |
 |---|---|
-| Access beyond campaign managers | `guardrails.authorize` at session start; `access_scope` on every skill call |
-| Kantar licence | period + `licence_scope` on each figure; `display_safe` strips raw panel fields before chat or MCP output |
-| Customer privacy | aggregates only; `min_cell_size` suppression in cohort splits and sizes |
-| Discussion drift | Judge `scope_check`; off-scope claims become notes for the draft |
-| Hallucinated numbers | answers and claims only quote pack blocks or fresh skill calls; Critic reconciliation; provenance per block |
-| Prompt injection | chat text maps onto a closed edit vocabulary; plan edits are limited to registry skills; core blocks 1–3 cannot be removed |
-| Runaway cost / loops | `max_debate_rounds`, `max_send_backs`, `max_brand_switches`, `max_skill_calls`, skill SLAs |
+| Access beyond campaign managers | `authorize` at session start; `access_scope` on every tool call |
+| Credentials | LRM key and employee ID from the environment only; `.env` is git-ignored |
+| Kantar licence | period + `licence_scope` on each figure; `display_safe` strips raw panel fields from prompts, chat and MCP output |
+| Customer privacy | aggregates only; `min_cell_size` suppression; skills forbid household-level output |
+| Discussion drift | `critic-judge` + `scope_check`; off-scope claims become notes for the draft |
+| Hallucinated numbers | faithfulness guard on every model text; numbers only from tools; reconciliation; provenance |
+| Prompt injection | chat is data (`HARNESS.md` rule 3); the gateway maps onto a closed op vocabulary validated in code; plan edits limited to registry tools |
+| Runaway cost / loops | skill `max_iterations`, loop detection, finish nudge, `max_tool_calls`, `max_debate_rounds`, `max_send_backs`, tool SLAs, LRM timeout and retries |
+| LRM outage | deterministic fallback per skill; the run never stops on the LRM |
 
 ## Evaluation
 
-`python -m campaign_agent.evaluation` reports three things:
+`python -m campaign_agent.evaluation` reports:
 
-- **Metric accuracy:** skill outputs against an independent "certified" recomputation.
-- **Brand resolution accuracy:** on a labelled request set, including an ambiguous request that
-  must ask back.
-- **Run metrics from the audit log:** override rate by stage, Brand Scout acceptance, scope
-  adherence, faithfulness of citations, time to Agreed Brief, and skill calls.
+- **metric accuracy** against a certified recomputation;
+- **brand resolution accuracy** on a labelled request set;
+- **run metrics:** override rate by stage, Brand Scout acceptance, scope adherence,
+  faithfulness, time to Brief, tool calls, agent skill runs, **LLM share, fallbacks with
+  reasons, and outputs rejected by guards**.
 
-## Moving to production (not done here)
+## Moving to production
 
-- Swap each manifest's `binding` for its `target_binding`: Databricks SQL on the feature
-  tables, the licensed Kantar feed, and the live stock, promo and price APIs. The registry,
-  agents and graph do not change.
-- Put the advocates' and Brief Writer's wording behind the approved LLM endpoint. Keep the
-  numbers coming only from the pack: today all text is templated and deterministic.
-- Replace the CLI with the Teams bot / web chat. `CampaignSession` is the seam.
-- Move checkpoints to PostgreSQL or Cosmos DB, add OpenTelemetry tracing (the `trace` list
-  already records agent, skill, version and latency per call), and use Entra ID for `user.role`.
-- Settle the open questions in the plan: the Brief transport (the `HandoffSink` protocol), the
-  canonical cohort framework, the Brand Scout cap (`scout_max_alternatives`), and the brand
-  switch rules.
+1. Set `LRM_EMPLOYEE_ID` and `LRM_API_KEY` on the Tesco network. `LRM_MODE=auto` then goes
+   live. Watch `harness_log` for fallbacks and guard rejections, and tune the SKILL.md files.
+2. Swap each tool manifest's `binding` for its `target_binding` (Databricks SQL, the
+   licensed Kantar feed, live stock, promo and price APIs). Skills, harness and graph do
+   not change.
+3. Replace the CLI with the Teams bot / web chat (`CampaignSession` is the seam). Move
+   checkpoints to PostgreSQL or Cosmos DB and episodic memory to a store. Export `trace` and
+   `harness_log` to OpenTelemetry.

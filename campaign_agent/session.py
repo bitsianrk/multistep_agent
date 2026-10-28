@@ -29,12 +29,20 @@ DEFAULT_USER = {"id": "cm.demo", "name": "Demo Campaign Manager", "role": "campa
 class CampaignSession:
     def __init__(self, user: dict | None = None, settings: Settings | None = None, checkpointer=None,
                  run_id: str | None = None, memory: EpisodicMemory | None = None,
-                 handoff: HandoffSink | None = None, **overrides):
+                 handoff: HandoffSink | None = None, transport=None, **overrides):
         self.user = user or DEFAULT_USER
         authorize(self.user)
         self.settings = replace(settings or DEFAULT_SETTINGS, **overrides) if overrides else (settings or DEFAULT_SETTINGS)
         self.checkpointer = checkpointer or InMemorySaver()
-        self.graph = build_graph(self.settings, self.checkpointer, memory=memory, handoff=handoff)
+        from .harness import AgentHarness
+        from .data import get_store
+        from .tools.registry import get_registry
+
+        self.memory = memory or EpisodicMemory(self.settings.memory_path)
+        self.harness = AgentHarness(get_registry(self.settings, get_store(self.settings)), self.memory,
+                                    mode=self.settings.lrm_mode, transport=transport)
+        self.graph = build_graph(self.settings, self.checkpointer, memory=self.memory, handoff=handoff,
+                                 harness=self.harness)
         self.run_id = run_id or f"run-{uuid.uuid4().hex[:8]}"
         self.config = {"configurable": {"thread_id": self.run_id}, "recursion_limit": 200}
         self._seen = len(self.values.get("chat", []) or [])
@@ -44,7 +52,8 @@ class CampaignSession:
         """The chat message is the trigger for the run."""
         self.graph.invoke({"run_id": self.run_id, "user": self.user, "request": message,
                            "chat": [{"role": "human", "text": message}], "audit": [], "trace": [],
-                           "send_backs": 0, "brand_switches": 0, "skill_calls": 0, "pack_seq": 0},
+                           "send_backs": 0, "brand_switches": 0, "tool_calls": 0, "pack_seq": 0,
+                           "harness_log": [], "working_memory": []},
                           self.config)
         return self._new_output()
 
@@ -55,6 +64,10 @@ class CampaignSession:
         return self._new_output()
 
     # Introspection --------------------------------------------------------
+    @property
+    def graph_harness_mode(self) -> str:
+        return self.harness.mode
+
     @property
     def snapshot(self):
         return self.graph.get_state(self.config)

@@ -221,3 +221,6 @@ __marimo__/
 
 # Campaign agent run outputs (briefs, audit logs, episodic memory, checkpoints)
 runs/
+
+# Local credentials
+.env

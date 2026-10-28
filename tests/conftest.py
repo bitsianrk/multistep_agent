@@ -9,7 +9,7 @@ from campaign_agent.data import get_store
 from campaign_agent.handoff import MemoryHandoff
 from campaign_agent.memory import EpisodicMemory
 from campaign_agent.session import CampaignSession
-from campaign_agent.skills.registry import get_registry
+from campaign_agent.tools.registry import get_registry
 
 CM = {"id": "cm.test", "name": "Test CM", "role": "campaign_manager_role"}
 

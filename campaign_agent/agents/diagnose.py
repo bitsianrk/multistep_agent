@@ -1,4 +1,4 @@
-"""Stage 3: the five skill agents run in parallel and build the Diagnostic Pack.
+"""Stage 3: the five tool agents run in parallel and build the Diagnostic Pack.
 
 Then the Qualifying PSG Agent and the Audience Agent turn the evidence into
 proposals, and the Critic reconciles the numbers before the human sees them.
@@ -122,17 +122,17 @@ SPECIALISTS = {cls.key: cls for cls in [BrandDiagnosticsAgent, QualifyingPSGAgen
 def step_key(step: dict) -> str:
     extra = {k: v for k, v in step["params"].items() if k not in WINDOW_PARAMS}
     if not extra:
-        return step["skill"]
-    return f"{step['skill']}[{','.join(f'{k}={v}' for k, v in sorted(extra.items()))}]"
+        return step["tool"]
+    return f"{step['tool']}[{','.join(f'{k}={v}' for k, v in sorted(extra.items()))}]"
 
 
 def _run_agent_steps(agent: Agent, brand_id: str, steps: list[dict]) -> list[tuple[dict, dict | None, str | None]]:
     results = []
     for step in steps:
         try:
-            res = agent.call(step["skill"], brand_id=brand_id, **step["params"])
+            res = agent.call(step["tool"], brand_id=brand_id, **step["params"])
             results.append((step, res, None))
-        except Exception as exc:  # a failed skill degrades the pack, it does not stop the run
+        except Exception as exc:  # a failed tool degrades the pack, it does not stop the run
             results.append((step, None, str(exc)))
     return results
 
@@ -148,13 +148,13 @@ def build_pack(rt: AgentRuntime, brand_id: str, objective: str, window: dict, pl
     audience_extra = []
     for step in plan["steps"]:
         if step["agent"] == "audience":
-            if step["skill"] == "cohort_size" and step["params"]:
+            if step["tool"] == "cohort_size" and step["params"]:
                 audience_extra.append(step)
             continue
         params = dict(step["params"])
-        if step["skill"] == "psg_score" and hero_bias:
+        if step["tool"] == "psg_score" and hero_bias:
             params["hero_bias"] = hero_bias
-        if step["skill"] == "brand_scout_score" and switch_bias:
+        if step["tool"] == "brand_scout_score" and switch_bias:
             params["switch_bias"] = switch_bias
         by_agent.setdefault(step["agent"], []).append({**step, "params": params})
 
@@ -172,7 +172,7 @@ def build_pack(rt: AgentRuntime, brand_id: str, objective: str, window: dict, pl
                 "feeds": BLOCK_FEEDS[int(step["block"])], "agent": key, "data": {}, "provenance": [],
             })
             if err:
-                pack["errors"].append({"block": block, "skill": step["skill"], "error": err})
+                pack["errors"].append({"block": block, "tool": step["tool"], "error": err})
                 continue
             entry["data"][step_key(step)] = res["output"]
             for p in res["provenance"]:

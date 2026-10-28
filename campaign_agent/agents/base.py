@@ -1,8 +1,8 @@
-"""Agents own judgement; skills own capability.
+"""Agents own judgement; tools own capability.
 
-An agent is a persona + goal + an allow-list of skills. Agents reach data
+An agent is a persona + goal + an allow-list of tools. Agents reach data
 only through registry calls, which enforce the allow-list and record a trace
-entry (skill, version, latency) for observability.
+entry (tool, version, latency) for observability.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from ..config import Settings
 from ..data import DataStore
-from ..skills.registry import RunBudget, SkillRegistry
+from ..tools.registry import RunBudget, ToolRegistry
 
 
 @dataclass
@@ -19,7 +19,7 @@ class AgentSpec:
     key: str
     name: str
     role: str
-    skills: frozenset[str]
+    tools: frozenset[str]
     whiteboard: str
 
 
@@ -57,6 +57,9 @@ ROSTER: dict[str, AgentSpec] = {s.key: s for s in [
     AgentSpec("critic_judge", "Critic / Judge",
               "Checks numbers reconcile, enforces discussion scope, decides convergence",
               frozenset({"reconcile_metrics", "scope_check"}), "Discussion loop"),
+    AgentSpec("pack_analyst", "Pack Analyst", "Answers campaign-manager questions from the Diagnostic Pack; "
+              "runs one more cut when the pack does not have it",
+              frozenset({"brand_spc", "brand_shoppers", "cohort_size", "spend_distribution"}), "Human chat window"),
     AgentSpec("brief_writer", "Brief Writer", "Writes the Agreed Brief and chat summary",
               frozenset({"write_brief"}), "Hand-off to Recommendation Draft"),
 ]}
@@ -64,9 +67,9 @@ ROSTER: dict[str, AgentSpec] = {s.key: s for s in [
 
 @dataclass
 class AgentRuntime:
-    """Per-run services handed to agents. The trace collects every skill call."""
+    """Per-run services handed to agents. The trace collects every tool call."""
 
-    registry: SkillRegistry
+    registry: ToolRegistry
     settings: Settings
     store: DataStore
     user: dict
@@ -86,18 +89,18 @@ class Agent:
     def name(self) -> str:
         return self.spec.name
 
-    def call(self, skill: str, **args) -> dict:
+    def call(self, tool: str, **args) -> dict:
         args = {k: v for k, v in args.items() if v is not None}
         try:
-            res = self.rt.registry.call(skill, args, caller=self.key, allow_list=set(self.spec.skills),
+            res = self.rt.registry.call(tool, args, caller=self.key, allow_list=set(self.spec.tools),
                                         role=self.rt.user["role"], budget=self.rt.budget)
         except Exception as exc:
-            self.rt.trace.append({"agent": self.key, "skill": skill, "ok": False, "error": str(exc)})
+            self.rt.trace.append({"agent": self.key, "tool": tool, "ok": False, "error": str(exc)})
             raise
-        self.rt.trace.append({"agent": self.key, "skill": skill, "version": res["version"], "ok": True,
+        self.rt.trace.append({"agent": self.key, "tool": tool, "version": res["version"], "ok": True,
                               "latency_ms": res["latency_ms"],
                               "args": {k: v for k, v in args.items() if k not in ("pack", "decision")}})
         return res
 
-    def out(self, skill: str, **args) -> dict:
-        return self.call(skill, **args)["output"]
+    def out(self, tool: str, **args) -> dict:
+        return self.call(tool, **args)["output"]

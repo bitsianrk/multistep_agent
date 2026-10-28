@@ -8,7 +8,7 @@ from campaign_agent.agents.diagnose import build_pack
 from campaign_agent.agents.understand import PlannerAgent
 from campaign_agent.config import DEFAULT_SETTINGS
 from campaign_agent.evaluation import brand_resolution_accuracy, metric_accuracy
-from campaign_agent.skills.registry import RunBudget
+from campaign_agent.tools.registry import RunBudget
 
 WINDOW = {"start": "2026-11-16", "weeks": 4}
 
@@ -33,12 +33,12 @@ def test_pack_has_all_ten_blocks_with_provenance_and_reconciles(registry):
         assert not pack["errors"]
 
 
-def test_each_agent_only_called_its_own_skills(registry):
+def test_each_agent_only_called_its_own_tools(registry):
     from campaign_agent.agents.base import ROSTER
 
     rt, _ = _pack(registry)
     for t in rt.trace:
-        assert t["skill"] in ROSTER[t["agent"]].skills, t
+        assert t["tool"] in ROSTER[t["agent"]].tools, t
 
 
 def test_psg_hard_filters(registry):

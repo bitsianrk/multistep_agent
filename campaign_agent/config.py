@@ -1,11 +1,12 @@
 """Run-time settings for the Campaign Planning Agent.
 
 Every threshold the workflow document leaves as "a floor" or "a threshold"
-lives here so it can be tuned without touching agents or skills.
+lives here so it can be tuned without touching agents or tools.
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -35,8 +36,8 @@ class Settings:
 
     # Runaway-cost controls -------------------------------------------------
     max_send_backs: int = 3
-    max_skill_calls: int = 250
-    skill_timeout_multiplier: float = 1.0   # x latency_sla_ms from manifest
+    max_tool_calls: int = 250
+    tool_timeout_multiplier: float = 1.0   # x latency_sla_ms from manifest
 
     # Brand Scout ---------------------------------------------------------
     scout_beat_margin: float = 0.25         # score lead needed to "beat"
@@ -55,6 +56,11 @@ class Settings:
     # Defaults when the request does not say
     default_window_weeks: int = 4
     default_lead_days: int = 14
+
+    # LRM / harness ---------------------------------------------------------
+    # "auto": live Tesco v1/lrm/ when LRM_EMPLOYEE_ID + LRM_API_KEY are set,
+    # otherwise the offline simulated model. "live" | "simulated" | "off".
+    lrm_mode: str = field(default_factory=lambda: os.getenv("LRM_MODE", "auto"))
 
     # Outputs -------------------------------------------------------------
     output_dir: Path = field(default_factory=lambda: Path("runs"))

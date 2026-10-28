@@ -53,7 +53,7 @@ def test_every_human_message_is_audited(make_session):
     assert all(m["actor"] == "cm.test" for m in messages)
 
 
-def test_question_calls_one_more_skill_and_keeps_the_checkpoint(make_session):
+def test_question_calls_one_more_tool_and_keeps_the_checkpoint(make_session):
     s = make_session()
     drive(s, [REQUEST, "yes", "go"])
     out = s.reply("What is SPC for light shoppers only?")
@@ -74,7 +74,7 @@ def test_clarification_for_ambiguous_brand_and_missing_objective(make_session):
     assert s.done
     assert s.values["brief"]["brand_id"] == "BR004"
     assert s.values["brief"]["objective"] == "grow"
-    assert all(st["skill"] != "kantar_penetration" for st in s.values["plan"]["steps"])
+    assert all(st["tool"] != "kantar_penetration" for st in s.values["plan"]["steps"])
 
 
 def test_planner_adapts_plan_to_the_brand(make_session):
@@ -82,7 +82,7 @@ def test_planner_adapts_plan_to_the_brand(make_session):
     drive(s, [REQUEST])
     s.reply("yes")
     steps = s.values["plan"]["steps"]
-    added = {(st["skill"], tuple(sorted(st["params"].items()))) for st in steps if st["added_by"] == "planner"}
+    added = {(st["tool"], tuple(sorted(st["params"].items()))) for st in steps if st["added_by"] == "planner"}
     assert ("brand_shoppers", (("cut", "lapsed_recency"),)) in added  # share falling in Kantar
     s2 = make_session()
     drive(s2, ["Grow Golden Bean coffee frequency, 4 weeks from 2 Mar", "yes"])

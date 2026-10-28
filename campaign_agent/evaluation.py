@@ -2,7 +2,7 @@
 
     python -m campaign_agent.evaluation
 
-* Metric accuracy - skill outputs vs an independent "certified" recomputation
+* Metric accuracy - tool outputs vs an independent "certified" recomputation
   (stands in for certified SQL);
 * Brand resolution accuracy - a labelled request set;
 * Run metrics from audit logs - override rate by stage, Brand Scout
@@ -20,7 +20,7 @@ from .agents.understand import EntityResolutionAgent
 from .config import DEFAULT_SETTINGS, Settings
 from .data import get_store
 from .data.taxonomy import BRANDS
-from .skills.registry import RunBudget, get_registry
+from .tools.registry import RunBudget, get_registry
 
 LABELLED_REQUESTS = [
     ("Plan a Multi-Step for Crunchwell to win back lapsed shoppers", "BR001"),
@@ -66,7 +66,7 @@ def metric_accuracy(settings: Settings = DEFAULT_SETTINGS) -> dict:
         got = {"shoppers_6w": b1["shoppers_6w"], "spc": b2["spc"], "penetration_pct": b1["penetration_pct"]}
         match = got == cert
         ok += match
-        rows.append({"brand_id": b, "match": match, "skill": got, "certified": cert})
+        rows.append({"brand_id": b, "match": match, "tool": got, "certified": cert})
     return {"accuracy_pct": round(100 * ok / len(rows), 1), "rows": rows}
 
 
@@ -103,7 +103,13 @@ def run_metrics(values: dict) -> dict:
         "faithfulness_pct": round(100 * sum(c.get("cites_valid", True) for c in transcript) / len(transcript), 1)
         if transcript else None,
         "time_to_agreed_brief_s": (t1 - t0).total_seconds() if t0 and t1 else None,
-        "skill_calls": values.get("skill_calls"),
+        "tool_calls": values.get("tool_calls"),
+        "agent_skill_runs": len(values.get("harness_log", [])),
+        "llm_share_pct": round(100 * sum(r["source"] == "llm" for r in values.get("harness_log", []))
+                               / max(1, len(values.get("harness_log", []))), 1),
+        "fallbacks": [{"skill": r["skill"], "reason": r["reason"]} for r in values.get("harness_log", [])
+                      if r["source"] != "llm"],
+        "outputs_rejected_by_guards": sum(r.get("rejected", 0) for r in values.get("harness_log", [])),
     }
 
 

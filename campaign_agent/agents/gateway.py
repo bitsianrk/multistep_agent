@@ -20,9 +20,9 @@ class ChatGateway(Agent):
     key = "chat_gateway"
 
     def route(self, text: str, stage: str, brand_id: str | None, awaiting_clarification: bool,
-              known_skills: list[str]) -> dict:
+              known_tools: list[str]) -> dict:
         return self.out("route_message", text=text, stage=stage, brand_id=brand_id,
-                        awaiting_clarification=awaiting_clarification, known_skills=known_skills)
+                        awaiting_clarification=awaiting_clarification, known_tools=known_tools)
 
     def card(self, stage: str, title: str, summary: list[str], key_numbers=None, actions=None,
              compact: bool = False) -> dict:
@@ -31,10 +31,10 @@ class ChatGateway(Agent):
 
     # Questions --------------------------------------------------------------
     def answer(self, question: str, state: dict) -> tuple[str, str, dict | None]:
-        """Answer from the Diagnostic Pack, or call one more skill for a new cut.
+        """Answer from the Diagnostic Pack, or call one more tool for a new cut.
 
         Returns (agent name, answer text, extra cut or None). Numbers only ever
-        come from pack blocks or a fresh skill call, never from the model.
+        come from pack blocks or a fresh tool call, never from the model.
         """
         q = question.lower()
         pack = state.get("pack")
@@ -44,17 +44,17 @@ class ChatGateway(Agent):
             plan = state.get("plan")
             if plan:
                 for s in plan["steps"]:
-                    if s["skill"] in q:
-                        return "Campaign Planning Agent", f"{s['skill']} (block {s['block']}): {s['reason']}.", None
+                    if s["tool"] in q:
+                        return "Campaign Planning Agent", f"{s['tool']} (block {s['block']}): {s['reason']}.", None
                 return ("Campaign Planning Agent",
-                        f"The plan has {len(plan['steps'])} skill calls across "
+                        f"The plan has {len(plan['steps'])} tool calls across "
                         f"{len({s['agent'] for s in plan['steps']})} agents; numbers arrive at Diagnose. "
-                        "Ask about a skill by name to see why it is in the plan.", None)
+                        "Ask about a tool by name to see why it is in the plan.", None)
             return ("Entity Resolution Agent",
                     "Nothing is diagnosed yet - confirm the brand, objective and window first.", None)
 
         blocks = pack["blocks"]
-        d = lambda b, skill: blocks.get(b, {}).get("data", {}).get(skill, {})  # noqa: E731
+        d = lambda b, tool: blocks.get(b, {}).get("data", {}).get(tool, {})  # noqa: E731
         prov = lambda b: ", ".join(f"{p['source']} as of {p['as_of']}" for p in blocks.get(b, {}).get("provenance", []))  # noqa: E731
 
         if "spc" in q or "spend per customer" in q:
@@ -62,7 +62,7 @@ class ChatGateway(Agent):
                 rt_agent = BrandDiagnosticsAgent(self.rt)
                 res = rt_agent.call("brand_spc", brand_id=pack["brand_id"], cohort=cohort)
                 o = res["output"]
-                cut = {"skill": "brand_spc", "params": {"cohort": cohort}, "output": o,
+                cut = {"tool": "brand_spc", "params": {"cohort": cohort}, "output": o,
                        "provenance": res["provenance"]}
                 if o.get("suppressed"):
                     return rt_agent.name, f"The {cohort} cohort is below the minimum cell size; SPC is suppressed.", cut

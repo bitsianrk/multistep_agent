@@ -1,0 +1,30 @@
+# internal users only - access_scope is checked on every call
+name: brand_shoppers
+version: 1.0.0
+owner: proposition-audience-ds
+domain: transactions
+description: Block 1. Distinct Clubcard households with at least one brand purchase in the rolling 6 weeks,
+  vs prior 6 weeks and last year; penetration, lapsed pool and headroom.
+inputs:
+  brand_id: str
+  cut: str?
+outputs:
+  brand_id: str
+  shoppers_6w: int
+  shoppers_prior_6w: int
+  penetration_pct: float
+  lapsed_pool: int
+  headroom_households: int
+  sales_6w_brand_week: float
+  lapsed_by_recency: dict?
+binding: campaign_agent.tools.servers.transactions:brand_shoppers
+target_binding: Databricks SQL over feat_customer_brand_6w (customer x brand, rolling 6 wks)
+sources:
+- feat_customer_brand_6w
+- feat_brand_week
+freshness: T-1
+latency_sla_ms: 3000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

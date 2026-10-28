@@ -10,7 +10,7 @@ stage. The human reply is classified by the Chat Gateway:
 
 * approve   -> next stage
 * ask       -> the stage's agent answers from the pack (or runs one more
-               skill), then the same checkpoint is shown again
+               tool), then the same checkpoint is shown again
 * edit      -> state is updated and re-validated, same checkpoint again
 * send back -> the graph jumps to the named earlier stage with the new input
 * pause     -> nothing changes; the checkpoint waits
@@ -28,6 +28,7 @@ from typing import Annotated, Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
+from .agents import harnessed as llm
 from .agents.base import ROSTER, AgentRuntime
 from .agents.debate import apply_overrides, human_position, propose, run_debate
 from .agents.diagnose import build_pack
@@ -38,8 +39,9 @@ from .data import get_store
 from .data.taxonomy import BRANDS, COHORT_LABELS
 from .guardrails import display_safe
 from .handoff import FileHandoff, HandoffSink
+from .harness import AgentHarness
 from .memory import EpisodicMemory
-from .skills.registry import RunBudget, SkillCallError, get_registry
+from .tools.registry import RunBudget, ToolCallError, get_registry
 
 STAGE_NODE = {"understand": "understand", "plan": "plan", "diagnose": "diagnose", "discuss": "propose",
               "brief": "brief"}
@@ -68,11 +70,13 @@ class RunState(TypedDict, total=False):
     handoff: dict
     send_backs: int
     brand_switches: int
-    skill_calls: int
+    tool_calls: int
     compact: bool
     chat: Annotated[list, operator.add]
     audit: Annotated[list, operator.add]
     trace: Annotated[list, operator.add]
+    harness_log: Annotated[list, operator.add]     # one entry per skill run (LLM or fallback)
+    working_memory: Annotated[list, operator.add]  # notes agents and the human leave for later stages
 
 
 def _now() -> str:
@@ -84,11 +88,12 @@ def say(agent: str, text: str) -> dict:
 
 
 def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | None = None,
-                handoff: HandoffSink | None = None):
+                handoff: HandoffSink | None = None, transport=None, harness: AgentHarness | None = None):
     store = get_store(settings)
     registry = get_registry(settings, store)
     memory = memory or EpisodicMemory(settings.memory_path)
     handoff = handoff or FileHandoff(settings.output_dir)
+    h = harness or AgentHarness(registry, memory, mode=settings.lrm_mode, transport=transport)
 
     # Helpers ------------------------------------------------------------
     class Ctx:
@@ -97,13 +102,18 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         def __init__(self, state: RunState):
             self.rt = AgentRuntime(registry=registry, settings=settings, store=store, user=state["user"],
                                    run_id=state["run_id"],
-                                   budget=RunBudget(settings.max_skill_calls, state.get("skill_calls", 0)))
+                                   budget=RunBudget(settings.max_tool_calls, state.get("tool_calls", 0)))
             self.gw = ChatGateway(self.rt)
+            self.log = llm.HarnessLog()
+            self.stage = state.get("stage")
 
         def update(self, **kw) -> dict:
             kw.setdefault("trace", [])
             kw["trace"] = kw["trace"] + self.rt.trace
-            kw["skill_calls"] = self.rt.budget.used
+            kw["tool_calls"] = self.rt.budget.used
+            stage = kw.get("stage") or self.stage
+            kw["harness_log"] = kw.get("harness_log", []) + [{**r, "stage": stage} for r in self.log.runs]
+            kw["working_memory"] = kw.get("working_memory", []) + self.log.memory
             return kw
 
     def audit(state: RunState, stage: str, actor: str, event: str, **extra) -> dict:
@@ -121,11 +131,15 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         card = c.gw.card(stage, title, summary, key_numbers, actions, compact=state.get("compact", False))
         reply = interrupt({"stage": stage, "awaiting": awaiting, "card": card})
         reply = str(reply)[:2000]
-        route = c.gw.route(reply, stage, state.get("brand_id"), awaiting == "clarification", registry.names())
+        clar = awaiting == "clarification"
+        route = llm.route(h, c.log, c.rt, state, reply, stage, clar, card, registry.names(),
+                          fallback=lambda: c.gw.route(reply, stage, state.get("brand_id"), clar, registry.names()))
         return reply, route
 
     def human_turn(state, stage, reply, route) -> dict:
-        return {"chat": [{"role": "human", "text": reply}], "status": "running",
+        notes = [{"agent": "campaign_manager", "stage": stage, "note": e["text"]}
+                 for e in route["edits"] if e["op"] == "add_note"]
+        return {"chat": [{"role": "human", "text": reply}], "status": "running", "working_memory": notes,
                 "audit": [audit(state, stage, state["user"]["id"], "message", text=reply,
                                 action=route["action"], edits=route["edits"])]}
 
@@ -133,7 +147,7 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         out: dict[str, Any] = {}
         for p in parts:
             for k, v in p.items():
-                if k in ("chat", "audit", "trace") and k in out:
+                if k in ("chat", "audit", "trace", "working_memory", "harness_log") and k in out:
                     out[k] = out[k] + v
                 else:
                     out[k] = v
@@ -141,8 +155,8 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
 
     def ask(state, c: Ctx, stage, reply, route, node) -> Command:
         try:
-            agent, text, cut = c.gw.answer(reply, state)
-        except SkillCallError as exc:
+            agent, text, cut = llm.answer(h, c.log, c.rt, state, reply, lambda: c.gw.answer(reply, state))
+        except ToolCallError as exc:
             agent, text, cut = "Chat Gateway", f"Could not run that cut: {exc}", None
         upd = {"chat": [say(agent, display_safe(text))], "compact": True}
         if cut and state.get("pack"):
@@ -212,7 +226,7 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
     def understand(state: RunState):
         c = Ctx(state)
         er = EntityResolutionAgent(c.rt)
-        res = er.resolve(state["request"])
+        res = llm.resolve(h, c.log, c.rt, {**state, "stage": "understand"}, er, state["request"])
         msg = ("Resolved " + f"{res['brand']['name']} ({res['brand']['category_name']})" if res["brand_id"]
                else "I need a clarification before planning.")
         return c.update(stage="understand", status="running", resolution=res, compact=False,
@@ -245,7 +259,8 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
             return Command(goto="plan", update=c.update(**merge(base, _accept_resolution(state, res))))
 
         def edit(base):
-            new = EntityResolutionAgent(c.rt).apply_answer(res, reply, route["edits"])
+            new = llm.resolve(h, c.log, c.rt, state, EntityResolutionAgent(c.rt), reply, pending=res,
+                              edits=route["edits"])
             text = ("Got it." if new["status"] == "resolved" else "Thanks - " + " ".join(new["questions"]))
             return Command(goto="cp_understand", update=c.update(**merge(
                 base, {"resolution": new, "compact": False, "chat": [say("Entity Resolution Agent", text)]})))
@@ -265,9 +280,9 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
     # Stage 2: Plan ---------------------------------------------------------
     def plan(state: RunState):
         c = Ctx(state)
-        p = PlannerAgent(c.rt).plan(state["brand_id"], state["objective"], state["window"])
+        p = llm.plan(h, c.log, c.rt, {**state, "stage": "plan"}, PlannerAgent(c.rt))
         added = [s for s in p["steps"] if s["added_by"] == "planner"]
-        msg = (f"Built a {len(p['steps'])}-step skill plan for {brand_name(state['brand_id'])}"
+        msg = (f"Built a {len(p['steps'])}-step tool plan for {brand_name(state['brand_id'])}"
                + (f"; added {len(added)} brand-specific {'analysis' if len(added) == 1 else 'analyses'}."
                   if added else "."))
         return c.update(stage="plan", plan=p, compact=False, chat=[say("Campaign Planning Agent", msg)],
@@ -280,13 +295,13 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         for agent in dict.fromkeys(s["agent"] for s in p["steps"]):
             steps = [s for s in p["steps"] if s["agent"] == agent]
             summary.append(f"{ROSTER[agent].name}: " + ", ".join(
-                s["skill"] + (f"({', '.join(f'{k}={v}' for k, v in s['params'].items() if k not in ('window_start', 'window_weeks'))})"
+                s["tool"] + (f"({', '.join(f'{k}={v}' for k, v in s['params'].items() if k not in ('window_start', 'window_weeks'))})"
                               if any(k not in ("window_start", "window_weeks") for k in s["params"]) else "")
                 for s in steps))
         for s in p["steps"]:
             if s["added_by"] != "base":
-                summary.append(f"+ {s['skill']}: {s['reason']}")
-        reply, route = checkpoint(state, c, "plan", f"Skill plan for {brand_name(state['brand_id'])} "
+                summary.append(f"+ {s['tool']}: {s['reason']}")
+        reply, route = checkpoint(state, c, "plan", f"Tool plan for {brand_name(state['brand_id'])} "
                                   f"({state['objective']})", summary, auto_confidence=0.95)
         if reply is None:
             return Command(goto="diagnose", update=c.update(chat=[say("Campaign Planning Agent",
@@ -324,14 +339,19 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         rt = c.rt
         plan_ = state["plan"]
         if plan_["brand_id"] != state["brand_id"]:  # brand switched: re-plan for the new brand
-            plan_ = PlannerAgent(rt).plan(state["brand_id"], state["objective"], state["window"])
+            plan_ = llm.plan(h, c.log, rt, {**state, "stage": "diagnose"}, PlannerAgent(rt))
         seq = state.get("pack_seq", 0) + 1
         pack = build_pack(rt, state["brand_id"], state["objective"], state["window"], plan_,
                           cohort_bias=memory.cohort_bias(cat), hero_bias=memory.hero_bias(cat),
                           switch_bias=memory.switch_bias(cat), pack_seq=seq)
         rec = pack["reconciliation"]
-        msgs = [say("Campaign Planning Agent", f"Ran {len(plan_['steps'])} skill calls across "
+        staged = {**state, "plan": plan_, "pack": pack, "stage": "diagnose"}
+        pack["proposals"]["audience"] = llm.audience(h, c.log, rt, staged, pack)
+        pack["findings"] = llm.findings(h, c.log, rt, staged)
+        msgs = [say("Campaign Planning Agent", f"Ran {len(plan_['steps'])} tool calls across "
                     f"{len({s['agent'] for s in plan_['steps']})} agents in parallel -> {pack['pack_id']}.")]
+        for agent, f in pack["findings"].items():
+            msgs.append(say(ROSTER[agent].name, " ".join(x["text"] for x in f["findings"][:2])))
         failed = [x for x in rec["checks"] if not x["passed"]]
         msgs.append(say("Critic / Judge", f"Reconciliation: {len(rec['checks']) - len(failed)}/{len(rec['checks'])} "
                         "checks passed" + (": " + "; ".join(f"{x['check']} ({x['detail']})" for x in failed)
@@ -359,7 +379,7 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
 
         def edit(base):
             ops = {e["op"] for e in route["edits"]}
-            if ops & {"add_skill", "remove_skill"}:
+            if ops & {"add_tool", "remove_tool"}:
                 new_plan, notes = PlannerAgent(c.rt).apply_edits(state["plan"], route["edits"], registry.names())
                 return Command(goto="diagnose", update=c.update(**merge(base, {"plan": new_plan, "chat": [
                     say("Campaign Planning Agent", " ".join(notes) + " Re-running the pack.")]})))
@@ -376,7 +396,8 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
     def propose_node(state: RunState):
         c = Ctx(state)
         locked = state.get("brand_switches", 0) >= settings.max_brand_switches
-        props = propose(c.rt, state["pack"], state["brand_id"], state["requested_brand_id"], locked)
+        props = propose(c.rt, state["pack"], state["brand_id"], state["requested_brand_id"], locked,
+                        advocate_fn=llm.advocate_fn(h, c.log, c.rt, {**state, "stage": "discuss"}, state["pack"]))
         msgs = []
         for p in props["proposals"]:
             brand = next(cl["text"] for cl in p["claims"] if cl["topic"] == "brand")
@@ -421,7 +442,7 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         c = Ctx(state)
         props = state["proposals"]
         human = human_position(state.get("position_edits") or [], state["pack"], props["top_alternative"])
-        dec = run_debate(c.rt, state["pack"], props, human)
+        dec = run_debate(c.rt, state["pack"], props, human, scope_fn=llm.scope_fn(h, c.log, c.rt, state))
         if state.get("decision") and state["decision"].get("notes_for_draft"):
             dec["notes_for_draft"] = list(dict.fromkeys(state["decision"]["notes_for_draft"] + dec["notes_for_draft"]))
         msgs = [say(t["speaker"], t["text"]) for t in dec["transcript"] if t["round"] > 0]
@@ -486,6 +507,8 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
     def brief(state: RunState):
         c = Ctx(state)
         out = BriefWriter(c.rt).write(state["brand_id"], _decision_for_brief(state), state["pack"])
+        out["summary_md"] = llm.brief_summary(h, c.log, c.rt, {**state, "stage": "brief"}, out["brief"],
+                                              out["summary_md"])
         return c.update(stage="brief", brief=out["brief"], brief_summary=out["summary_md"], compact=False,
                         chat=[say("Brief Writer", out["summary_md"])],
                         audit=[audit(state, "brief", "system", "stage_complete")])
@@ -501,6 +524,7 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         def approve(base):
             out = BriefWriter(c.rt).write(state["brand_id"], _decision_for_brief(state), state["pack"],
                                           approved_by=state["user"]["id"])
+            out["summary_md"] = state["brief_summary"]  # the text the human just approved
             return Command(goto="handoff", update=c.update(**merge(base, {
                 "brief": out["brief"], "brief_summary": out["summary_md"],
                 "audit": [audit(state, "brief", state["user"]["id"], "approved")]})))
@@ -514,6 +538,7 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
                 memory.record_override(state["run_id"], category(state), "brief", e, _proposed(state["decision"], e))
             st = {**state, "decision": new}
             out = BriefWriter(c.rt).write(state["brand_id"], _decision_for_brief(st), state["pack"])
+            out["summary_md"] = llm.brief_summary(h, c.log, c.rt, st, out["brief"], out["summary_md"])
             return Command(goto="cp_brief", update=c.update(**merge(base, {
                 "decision": new, "brief": out["brief"], "brief_summary": out["summary_md"], "compact": False,
                 "chat": [say("Brief Writer", " ".join(notes) + " Brief updated.")]})))
@@ -528,6 +553,8 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
             "brand_requested": state["requested_brand_id"], "brand_selected": state["brand_id"],
             "category_id": category(state), "objective": state["objective"],
             "send_backs": state.get("send_backs", 0), "overrides": len(state["decision"].get("human_overrides", [])),
+            "notes": [w["note"] for w in state.get("working_memory", [])][-10:],
+            "llm_runs": sum(r["source"] == "llm" for r in state.get("harness_log", [])),
         })
         return {"status": "done", "handoff": receipt, "stage": "handoff",
                 "chat": [say("Brief Writer", "Agreed Brief handed off to the Recommendation Draft process "
@@ -582,8 +609,8 @@ def _edit_text(e: dict) -> str:
 def diagnose_card(pack: dict) -> tuple[list[str], list[list[str]]]:
     b = pack["blocks"]
 
-    def d(block, skill):
-        return b.get(block, {}).get("data", {}).get(skill, {})
+    def d(block, tool):
+        return b.get(block, {}).get("data", {}).get(tool, {})
 
     b1, b2, b3 = d("1", "brand_shoppers"), d("2", "brand_spc"), d("3", "cohort_split")
     b6, b7k, b7s, b8 = d("6", "seasonality_index"), display_safe(d("7", "kantar_share")), d("7", "sentiment_scan"), \
@@ -624,6 +651,9 @@ def diagnose_card(pack: dict) -> tuple[list[str], list[list[str]]]:
                + f" = {aud['total_included']:,} hh"])
     kn.append(["Reconciliation", f"{sum(x['passed'] for x in rec['checks'])}/{len(rec['checks'])} checks passed"])
     summary = ["Ask about any number, ask for a new cut (e.g. 'SPC for light shoppers?'), or approve to discuss."]
+    for f in pack.get("findings", {}).values():
+        for w in f.get("watch", []):
+            summary.append(f"Watch: {w}")
     for e in psg["exclude"]:
         summary.append(f"Excluded {names.get(e['psg_id'], e['psg_id'])}: {e['reason']}")
     return summary, kn
