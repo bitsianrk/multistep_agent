@@ -1,0 +1,39 @@
+{
+  "cases": [
+    {
+      "name": "cohort_size_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "cohort": "lapsed"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "cohort": "lapsed",
+        "size": 531,
+        "suppressed": false
+      }
+    },
+    {
+      "name": "cohort_size_2",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR009",
+        "cohort": "non_buyers",
+        "by": "lifestage"
+      },
+      "expect": {
+        "brand_id": "BR009",
+        "cohort": "non_buyers",
+        "size": 1734,
+        "suppressed": false,
+        "by_lifestage": {
+          "Young Adults": 383,
+          "Families": 577,
+          "Older Adults": 469,
+          "Retired": 305
+        }
+      }
+    }
+  ]
+}

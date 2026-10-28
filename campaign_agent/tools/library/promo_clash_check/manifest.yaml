@@ -1,0 +1,24 @@
+# internal users only - access_scope is checked on every call
+name: promo_clash_check
+version: 1.0.0
+owner: campaign-ops-eng
+domain: ops
+description: Block 5 hard filter. Live promotions (Clubcard Prices, coupons) that overlap the campaign
+  window.
+inputs:
+  brand_id: str
+  window_start: date
+  window_weeks: int
+outputs:
+  brand_id: str
+  clashes: list
+binding: campaign_agent.tools.servers.ops:promo_clash_check
+target_binding: Live promotions calendar API / event stream
+sources:
+- promotions_api
+freshness: Near real time
+latency_sla_ms: 1500
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

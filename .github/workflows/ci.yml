@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      # Each tool's golden cases run before release (design: "tests/ run in CI and nightly").
+      - run: python scripts/update_golden.py --check
+      - run: python -m pytest -q
+      - run: python -m campaign_agent.evaluation

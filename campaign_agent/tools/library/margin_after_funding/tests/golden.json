@@ -1,0 +1,63 @@
+{
+  "cases": [
+    {
+      "name": "margin_after_funding_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR003"
+      },
+      "expect": {
+        "brand_id": "BR003",
+        "margin_floor_pct": 20.0,
+        "brand_margin_after_funding_pct": 20.7,
+        "psgs": [
+          {
+            "psg_id": "PSG-BR003-01",
+            "name": "Snapjack Multipack Crisps",
+            "margin_pct": 14.9,
+            "supplier_funding_pct": 3.8,
+            "margin_after_funding_pct": 18.7,
+            "shelf_price": 4.18,
+            "below_floor": true
+          },
+          {
+            "psg_id": "PSG-BR003-02",
+            "name": "Snapjack Sharing Bags",
+            "margin_pct": 20.5,
+            "supplier_funding_pct": 3.1,
+            "margin_after_funding_pct": 23.6,
+            "shelf_price": 4.72,
+            "below_floor": false
+          },
+          {
+            "psg_id": "PSG-BR003-03",
+            "name": "Snapjack Single Bags",
+            "margin_pct": 24.5,
+            "supplier_funding_pct": 0.8,
+            "margin_after_funding_pct": 25.3,
+            "shelf_price": 2.4,
+            "below_floor": false
+          },
+          {
+            "psg_id": "PSG-BR003-04",
+            "name": "Snapjack Baked Range",
+            "margin_pct": 18.8,
+            "supplier_funding_pct": 2.3,
+            "margin_after_funding_pct": 21.1,
+            "shelf_price": 3.54,
+            "below_floor": false
+          },
+          {
+            "psg_id": "PSG-BR003-05",
+            "name": "Snapjack Tortilla Chips",
+            "margin_pct": 11.1,
+            "supplier_funding_pct": 1.7,
+            "margin_after_funding_pct": 12.8,
+            "shelf_price": 3.79,
+            "below_floor": true
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "name": "resume_from_stage_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "stage": "diagnose"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "stage": "diagnose",
+        "clears": [
+          "pack",
+          "reconciliation",
+          "debate",
+          "brief"
+        ]
+      }
+    }
+  ]
+}

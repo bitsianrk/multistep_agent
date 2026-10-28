@@ -1,0 +1,61 @@
+{
+  "cases": [
+    {
+      "name": "brand_shoppers_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "shoppers_6w": 1710,
+        "shoppers_prior_6w": 1827,
+        "shoppers_6w_ly": 2148,
+        "change_vs_prior_pct": -6.4,
+        "yoy_pct": -20.4,
+        "category_shoppers_6w": 3151,
+        "penetration_pct": 54.3,
+        "lapsed_pool": 531,
+        "headroom_households": 1441,
+        "sales_6w_brand_week": 12095.38
+      }
+    },
+    {
+      "name": "brand_shoppers_2",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "cut": "lapsed_recency"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "shoppers_6w": 1710,
+        "shoppers_prior_6w": 1827,
+        "shoppers_6w_ly": 2148,
+        "change_vs_prior_pct": -6.4,
+        "yoy_pct": -20.4,
+        "category_shoppers_6w": 3151,
+        "penetration_pct": 54.3,
+        "lapsed_pool": 531,
+        "headroom_households": 1441,
+        "sales_6w_brand_week": 12095.38,
+        "lapsed_by_recency": {
+          "7-12 wks": 157,
+          "13-18 wks": 166,
+          "19-26 wks": 208
+        },
+        "lapsed_prior_spend_6w": 4071.91
+      }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "name": "promo_clash_check_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "window_start": "2026-11-16",
+        "window_weeks": 4
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "checked_at": "2026-10-27T09:00",
+        "window": {
+          "start": "2026-11-16",
+          "end": "2026-12-13"
+        },
+        "clashes": [
+          {
+            "psg_id": "PSG-BR001-02",
+            "mechanic": "Clubcard Price",
+            "start": "2026-11-02",
+            "end": "2026-11-29",
+            "name": "Crunchwell Sharing Bags",
+            "overlap_days": 14
+          }
+        ]
+      }
+    }
+  ]
+}

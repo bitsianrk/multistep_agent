@@ -1,0 +1,22 @@
+# internal users only - access_scope is checked on every call
+name: category_brands
+version: 1.0.0
+owner: market-insight-ds
+domain: market
+description: Block 10. Other brands in the requested brand's category.
+inputs:
+  brand_id: str
+outputs:
+  brand_id: str
+  category_id: str
+  brands: list
+binding: campaign_agent.tools.servers.market:category_brands
+target_binding: Taxonomy graph
+sources:
+- taxonomy
+freshness: On range change
+latency_sla_ms: 8000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

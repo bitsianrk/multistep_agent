@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Campaign agent run outputs (briefs, audit logs, episodic memory, checkpoints)
+runs/
+
+# Local credentials
+.env

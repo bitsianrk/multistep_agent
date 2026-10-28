@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "name": "category_brands_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR005"
+      },
+      "expect": {
+        "brand_id": "BR005",
+        "category_id": "CAT_COFFEE",
+        "brands": [
+          {
+            "brand_id": "BR004",
+            "name": "Golden Bean"
+          },
+          {
+            "brand_id": "BR006",
+            "name": "Barista Bay"
+          }
+        ]
+      }
+    }
+  ]
+}

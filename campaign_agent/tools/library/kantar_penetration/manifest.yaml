@@ -1,0 +1,25 @@
+# internal users only - access_scope is checked on every call
+name: kantar_penetration
+version: 1.0.0
+owner: market-insight-ds
+domain: market
+description: Block 7. Kantar / Worldpanel household penetration for the latest release period and its
+  trend.
+inputs:
+  brand_id: str
+outputs:
+  brand_id: str
+  period: str
+  licence_scope: str
+  penetration: float
+  penetration_trend_pts: float
+binding: campaign_agent.tools.servers.market:kantar_penetration
+target_binding: kantar_* MCP tool set over the licensed Worldpanel feed
+sources:
+- kantar_cache
+freshness: Per release period
+latency_sla_ms: 8000
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

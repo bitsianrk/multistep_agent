@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "name": "ner_extract_1",
+      "kind": "snapshot",
+      "input": {
+        "text": "Plan a Multi-Step for Crunchwell crisps to win back lapsed shoppers, 4 weeks from 16 Nov"
+      },
+      "expect": {
+        "brand_mentions": [
+          {
+            "brand_id": "BR001",
+            "name": "Crunchwell",
+            "alias": "crunchwell",
+            "match": "exact",
+            "score": 1.0
+          }
+        ],
+        "category_mentions": [
+          "CAT_CRISPS"
+        ],
+        "objective": "reactivate",
+        "window": {
+          "start": "2026-11-16",
+          "weeks": 4,
+          "assumed": []
+        }
+      }
+    }
+  ]
+}

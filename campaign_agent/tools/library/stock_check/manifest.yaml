@@ -1,0 +1,23 @@
+# internal users only - access_scope is checked on every call
+name: stock_check
+version: 1.0.0
+owner: campaign-ops-eng
+domain: ops
+description: Block 5 hard filter. Forecast stock cover per PSG for the window from the live stock API.
+inputs:
+  brand_id: str
+  window_start: date
+  window_weeks: int
+outputs:
+  brand_id: str
+  psgs: list
+binding: campaign_agent.tools.servers.ops:stock_check
+target_binding: Live stock and forecast availability API
+sources:
+- stock_api
+freshness: Intraday
+latency_sla_ms: 1500
+access_scope:
+- campaign_manager_role
+mechanics_enabled:
+- multistep_spend

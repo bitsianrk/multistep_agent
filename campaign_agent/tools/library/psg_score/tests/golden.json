@@ -1,0 +1,67 @@
+{
+  "cases": [
+    {
+      "name": "psg_score_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR003"
+      },
+      "expect": {
+        "brand_id": "BR003",
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "psgs": [
+          {
+            "psg_id": "PSG-BR003-02",
+            "name": "Snapjack Sharing Bags",
+            "reach_pct": 52.6,
+            "sales_6w": 5022.43,
+            "momentum_6w_pct": 13.6,
+            "yoy_pct": 89.4,
+            "hero_score": 0.988
+          },
+          {
+            "psg_id": "PSG-BR003-01",
+            "name": "Snapjack Multipack Crisps",
+            "reach_pct": 53.7,
+            "sales_6w": 4288.34,
+            "momentum_6w_pct": 2.9,
+            "yoy_pct": 31.4,
+            "hero_score": 0.692
+          },
+          {
+            "psg_id": "PSG-BR003-04",
+            "name": "Snapjack Baked Range",
+            "reach_pct": 27.1,
+            "sales_6w": 1737.26,
+            "momentum_6w_pct": 10.4,
+            "yoy_pct": 70.3,
+            "hero_score": 0.611
+          },
+          {
+            "psg_id": "PSG-BR003-05",
+            "name": "Snapjack Tortilla Chips",
+            "reach_pct": 28.6,
+            "sales_6w": 1869.23,
+            "momentum_6w_pct": 7.2,
+            "yoy_pct": 52.7,
+            "hero_score": 0.535
+          },
+          {
+            "psg_id": "PSG-BR003-03",
+            "name": "Snapjack Single Bags",
+            "reach_pct": 29.6,
+            "sales_6w": 1669.27,
+            "momentum_6w_pct": -0.3,
+            "yoy_pct": 16.9,
+            "hero_score": 0.331
+          }
+        ],
+        "default_basket": "whole brand"
+      }
+    }
+  ]
+}

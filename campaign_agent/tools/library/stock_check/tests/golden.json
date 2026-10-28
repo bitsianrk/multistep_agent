@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "name": "stock_check_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "window_start": "2026-11-16",
+        "window_weeks": 4
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "checked_at": "2026-10-27T09:00",
+        "psgs": [
+          {
+            "psg_id": "PSG-BR001-01",
+            "name": "Crunchwell Multipack Crisps",
+            "forecast_cover_weeks": 9.2,
+            "required_cover_weeks": 4.0,
+            "ok": true
+          },
+          {
+            "psg_id": "PSG-BR001-02",
+            "name": "Crunchwell Sharing Bags",
+            "forecast_cover_weeks": 6.3,
+            "required_cover_weeks": 4.0,
+            "ok": true
+          },
+          {
+            "psg_id": "PSG-BR001-03",
+            "name": "Crunchwell Single Bags",
+            "forecast_cover_weeks": 9.3,
+            "required_cover_weeks": 4.0,
+            "ok": true
+          },
+          {
+            "psg_id": "PSG-BR001-04",
+            "name": "Crunchwell Baked Range",
+            "forecast_cover_weeks": 1.4,
+            "required_cover_weeks": 4.0,
+            "ok": false
+          },
+          {
+            "psg_id": "PSG-BR001-05",
+            "name": "Crunchwell Tortilla Chips",
+            "forecast_cover_weeks": 8.1,
+            "required_cover_weeks": 4.0,
+            "ok": true
+          }
+        ]
+      }
+    }
+  ]
+}

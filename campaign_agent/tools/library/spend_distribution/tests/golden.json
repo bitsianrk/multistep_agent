@@ -1,0 +1,94 @@
+{
+  "cases": [
+    {
+      "name": "spend_distribution_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "by_cohort": {
+          "all": {
+            "suppressed": false,
+            "households": 1710,
+            "basis": "6w",
+            "spend_p10": 2.42,
+            "spend_p25": 3.03,
+            "spend_p50": 4.47,
+            "spend_p75": 8.75,
+            "spend_p90": 15.15,
+            "median_interpurchase_days": 14.0
+          },
+          "light": {
+            "suppressed": false,
+            "households": 855,
+            "basis": "6w",
+            "spend_p10": 2.14,
+            "spend_p25": 2.54,
+            "spend_p50": 3.03,
+            "spend_p75": 3.6,
+            "spend_p90": 4.05,
+            "median_interpurchase_days": 21.0
+          },
+          "medium": {
+            "suppressed": false,
+            "households": 513,
+            "basis": "6w",
+            "spend_p10": 4.78,
+            "spend_p25": 5.23,
+            "spend_p50": 6.75,
+            "spend_p75": 8.17,
+            "spend_p90": 9.25,
+            "median_interpurchase_days": 21.0
+          },
+          "heavy": {
+            "suppressed": false,
+            "households": 342,
+            "basis": "6w",
+            "spend_p10": 10.74,
+            "spend_p25": 11.69,
+            "spend_p50": 15.16,
+            "spend_p75": 19.75,
+            "spend_p90": 26.35,
+            "median_interpurchase_days": 10.5
+          }
+        }
+      }
+    },
+    {
+      "name": "spend_distribution_2",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001",
+        "cohort": "lapsed"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "period": {
+          "start": "2026-09-14",
+          "end": "2026-10-25",
+          "weeks": 6
+        },
+        "by_cohort": {
+          "lapsed": {
+            "suppressed": false,
+            "households": 531,
+            "basis": "prior_6w",
+            "spend_p10": 2.38,
+            "spend_p25": 3.05,
+            "spend_p50": 4.82,
+            "spend_p75": 9.61,
+            "spend_p90": 15.58,
+            "median_interpurchase_days": null
+          }
+        }
+      }
+    }
+  ]
+}

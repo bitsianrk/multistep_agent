@@ -1,0 +1,52 @@
+{
+  "cases": [
+    {
+      "name": "multistep_history_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "campaigns_on_brand": 2,
+        "campaigns_in_category": 6,
+        "by_cohort": {
+          "lapsed": {
+            "campaigns": 6,
+            "participation_pct": 14.9,
+            "completion_pct": 29.2,
+            "incremental_spend_per_hh": 4.14
+          },
+          "light": {
+            "campaigns": 6,
+            "participation_pct": 23.9,
+            "completion_pct": 36.3,
+            "incremental_spend_per_hh": 2.23
+          },
+          "medium": {
+            "campaigns": 6,
+            "participation_pct": 34.5,
+            "completion_pct": 44.3,
+            "incremental_spend_per_hh": 1.75
+          },
+          "heavy": {
+            "campaigns": 6,
+            "participation_pct": 41.1,
+            "completion_pct": 58.7,
+            "incremental_spend_per_hh": 0.6
+          },
+          "non_buyers": {
+            "campaigns": 3,
+            "participation_pct": 6.5,
+            "completion_pct": 21.1,
+            "incremental_spend_per_hh": 2.38
+          }
+        },
+        "campaign_ids": [
+          "MS-101",
+          "MS-102"
+        ]
+      }
+    }
+  ]
+}

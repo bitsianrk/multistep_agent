@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "name": "disambiguate_1",
+      "kind": "labelled",
+      "input": {
+        "text": "2",
+        "candidates": [
+          "BR002",
+          "BR004"
+        ]
+      },
+      "expect": {
+        "brand_id": "BR004"
+      }
+    },
+    {
+      "name": "disambiguate_2",
+      "kind": "labelled",
+      "input": {
+        "text": "the coffee one",
+        "candidates": [
+          "BR002",
+          "BR004"
+        ]
+      },
+      "expect": {
+        "brand_id": "BR004"
+      }
+    },
+    {
+      "name": "disambiguate_3",
+      "kind": "labelled",
+      "input": {
+        "text": "Golden Harvest",
+        "candidates": [
+          "BR002",
+          "BR004"
+        ]
+      },
+      "expect": {
+        "brand_id": "BR002"
+      }
+    },
+    {
+      "name": "disambiguate_4",
+      "kind": "labelled",
+      "input": {
+        "text": "not sure",
+        "candidates": [
+          "BR002",
+          "BR004"
+        ]
+      },
+      "expect": {
+        "brand_id": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "cases": [
+    {
+      "name": "kantar_share_1",
+      "kind": "snapshot",
+      "input": {
+        "brand_id": "BR001"
+      },
+      "expect": {
+        "brand_id": "BR001",
+        "period": "2026 P10",
+        "period_end": "2026-10-04",
+        "licence_scope": "tesco-internal",
+        "value_share": 21.47,
+        "value_share_trend_pts": -0.45,
+        "history": [
+          {
+            "period": "2026 P10",
+            "value_share": 21.47
+          },
+          {
+            "period": "2026 P09",
+            "value_share": 21.62
+          },
+          {
+            "period": "2026 P08",
+            "value_share": 21.78
+          },
+          {
+            "period": "2026 P07",
+            "value_share": 21.87
+          },
+          {
+            "period": "2026 P06",
+            "value_share": 22.16
+          },
+          {
+            "period": "2026 P05",
+            "value_share": 22.19
+          }
+        ],
+        "panel_sample_households": 1391,
+        "share_trend_vs_category_pts": -0.47
+      }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "name": "write_brief_1",
+      "kind": "labelled",
+      "input": {
+        "brand_id": "BR001",
+        "pack": {
+          "pack_id": "pack-x",
+          "blocks": {}
+        },
+        "approved_by": "cm.test",
+        "decision": {
+          "brand_decision": {
+            "requested": "BR001",
+            "selected": "BR001",
+            "alternatives_considered": [],
+            "reason": "kept"
+          },
+          "objective": "reactivate",
+          "window": {
+            "start": "2026-11-16",
+            "weeks": 4
+          },
+          "audience": [
+            {
+              "cohort": "lapsed",
+              "size": 531,
+              "include": true,
+              "reason": "r"
+            }
+          ],
+          "qualifying_psgs": {
+            "include": [
+              "PSG-BR001-01"
+            ],
+            "exclude": [],
+            "hero": [
+              "PSG-BR001-01"
+            ]
+          }
+        }
+      },
+      "expect": {
+        "brief": {
+          "brand_id": "BR001",
+          "diagnostics_ref": "pack-x",
+          "approved_by": "cm.test",
+          "objective": "reactivate"
+        }
+      }
+    }
+  ]
+}
