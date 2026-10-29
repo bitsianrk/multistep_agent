@@ -80,6 +80,14 @@ Then start the chat. `--lrm-mode auto` goes live when both variables are set:
 python -m campaign_agent --lrm-mode auto
 ```
 
+Before starting, you can test the live connection from the same terminal. It reports whether the credentials are visible, whether the endpoint is reachable (Tesco VPN), and whether the key is accepted:
+
+```bash
+python -m campaign_agent.llm.check
+```
+
+When the web UI starts, it prints which LRM mode it chose and why. Hover the badge in the header to see the same reason.
+
 Use `--lrm-mode off` for fully deterministic agents. In the CLI, `/harness` shows which
 skills ran on the LRM and which fell back (and why), and `/memory` shows working and
 episodic memory.

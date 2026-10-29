@@ -28,6 +28,7 @@ from ..config import DEFAULT_SETTINGS, Settings
 from ..guardrails import AccessDenied, display_safe
 from ..harness import resolve_mode
 from ..llm import LRMConfig
+from ..llm.check import mode_reason
 from ..memory import EpisodicMemory
 from ..session import CampaignSession
 from .view import run_summary, run_view
@@ -196,7 +197,8 @@ def create_app(settings: Settings | None = None, checkpointer=None, transport=No
     def config():
         mode = "live" if transport is not None and settings.lrm_mode != "off" else \
             resolve_mode(settings.lrm_mode, LRMConfig.from_env())
-        return jsonify(lrm_mode=mode, user=current_user()["id"], autonomy=settings.autonomy_level,
+        reason = "live — test transport" if transport is not None else mode_reason(mode=settings.lrm_mode)
+        return jsonify(lrm_mode=mode, lrm_reason=reason, user=current_user()["id"], autonomy=settings.autonomy_level,
                        examples=EXAMPLES)
 
     @app.get("/api/runs")
@@ -291,7 +293,16 @@ def main(argv=None) -> int:
 
         args.db.parent.mkdir(parents=True, exist_ok=True)
         checkpointer = SqliteSaver(sqlite3.connect(str(args.db), check_same_thread=False))
+    reason = mode_reason(mode=args.lrm_mode)
+    if args.lrm_mode == "live" and not LRMConfig.from_env().configured:
+        print(f"Cannot start in live mode: {reason.split(' — ', 1)[1]}.\n"
+              "Set LRM_EMPLOYEE_ID and LRM_API_KEY in this terminal, or check with:  python -m campaign_agent.llm.check")
+        return 2
     app = create_app(settings, checkpointer)
     print(f"Campaign Planning Agent UI on http://{args.host}:{args.port}  (Ctrl+C to stop)")
+    print(f"LRM: {reason}")
+    if reason.startswith("simulated"):
+        print("     To run live: set the variables in this terminal (on the Tesco VPN), then restart.\n"
+              "     Test the connection first with:  python -m campaign_agent.llm.check")
     app.run(host=args.host, port=args.port, threaded=True, debug=False)
     return 0
