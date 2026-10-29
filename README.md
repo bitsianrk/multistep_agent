@@ -27,13 +27,19 @@ Design and code map: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 pip install -r requirements.txt
 ```
 
+Open the web UI at http://127.0.0.1:8000:
+
+```bash
+python -m campaign_agent.web
+```
+
 Run the scripted demo:
 
 ```bash
 python -m campaign_agent.demo
 ```
 
-Start the interactive chat window:
+Start the terminal chat instead of the web UI:
 
 ```bash
 python -m campaign_agent
@@ -78,6 +84,21 @@ Use `--lrm-mode off` for fully deterministic agents. In the CLI, `/harness` show
 skills ran on the LRM and which fell back (and why), and `/memory` shows working and
 episodic memory.
 
+## Web UI
+
+![Discussion stage in the web UI](docs/images/ui_discussion.png)
+
+- **Left:** the chat window. A message starts a run, and each stage ends in a checkpoint card with Approve / Ask / Edit / Send back / Pause buttons. Suggested replies are shown for each stage.
+- **Right:** tabs for Overview, Plan, Pack (key numbers, agent findings, audience, PSGs, reconciliation), Discussion (advocates, decision, dissent, critique rounds), Brief (summary, handoff JSON, download), Agents (which skills ran on the LRM or fell back, and why), Memory (working and episodic) and Audit.
+- **Header:** the LRM mode badge (live / simulated / off) and a picker to reopen earlier runs.
+
+The UI binds to `127.0.0.1` by default. Options:
+
+- `--port 8000` sets the port.
+- `--db runs/state.db` keeps runs across server restarts.
+- `--lrm-mode auto|live|simulated|off` sets how agents run.
+- `--autonomy L2` lets stages 1–3 advance on their own when confidence is high.
+
 ## Talking to it
 
 | You say | It does |
@@ -98,7 +119,8 @@ campaign_agent/
   agents/             roster + allow-lists, deterministic policies, harnessed.py (skill <-> harness bindings)
   tools/              28 tools (TOOL.md + manifest.yaml + golden tests), registry, MCP domain servers
   graph.py            LangGraph workflow: 5 stages, a checkpoint after each
-  session.py, cli.py  chat window backend and terminal UI
+  session.py, cli.py  chat session backend and terminal UI
+  web/                Flask API + single-page UI (static/, no build step, no CDN)
   memory.py           episodic memory; overrides re-weight scoring
   data/               seeded synthetic feature tables, live-API snapshots, Kantar cache, taxonomy
   guardrails.py, handoff.py, evaluation.py, mcp_server.py, demo.py
