@@ -126,7 +126,7 @@ export default function App() {
           </div>
         )}
         <div className="topbar-end">
-          {mode && <span className={`mode mode-${mode}`} title={MODE_HINT[mode]}>{MODE_LABEL[mode]}</span>}
+          {mode && <span className={`mode mode-${mode}`} title={config?.lrm_reason ?? MODE_HINT[mode]}>{MODE_LABEL[mode]}</span>}
           <select aria-label="Open a run" value={runId ?? ""} onChange={(e) => openRun(e.target.value)}>
             <option value="">{runs.length ? `Runs (${runs.length})` : "No runs yet"}</option>
             {runs.map((r) => (

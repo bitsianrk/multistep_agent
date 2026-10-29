@@ -6,7 +6,8 @@
 
 Slash commands: /plan /pack /decision /brief /trace /audit /harness /memory /help /quit
 
-LRM: --lrm-mode auto (default) uses the Tesco v1/lrm/ endpoint when LRM_EMPLOYEE_ID and
+LRM: --lrm-mode live (default) runs every agent on the Tesco v1/lrm/ endpoint; credentials
+come from the environment or a .env file (see .env.example). --lrm-mode auto uses it when LRM_EMPLOYEE_ID and
 LRM_API_KEY are set (Tesco VPN required), otherwise the offline simulated model.
 """
 
@@ -38,6 +39,10 @@ def _dump(obj) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .envfile import default_lrm_mode, load_env_file
+    from .llm.check import live_blocker
+
+    load_env_file()
     ap = argparse.ArgumentParser(prog="campaign_agent", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", type=Path, help="SQLite file for persistent checkpoints (pause/resume across sessions)")
@@ -45,8 +50,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--autonomy", choices=["L1", "L2"], default="L1")
     ap.add_argument("--user", default="cm.demo", help="campaign manager id")
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_SETTINGS.output_dir)
-    ap.add_argument("--lrm-mode", choices=["auto", "live", "simulated", "off"], default=DEFAULT_SETTINGS.lrm_mode)
+    ap.add_argument("--lrm-mode", choices=["auto", "live", "simulated", "off"], default=default_lrm_mode())
     args = ap.parse_args(argv)
+    blocker = live_blocker(args.lrm_mode)
+    if blocker:
+        print(blocker)
+        return 2
 
     settings = replace(DEFAULT_SETTINGS, autonomy_level=args.autonomy, output_dir=args.output_dir,
                        memory_path=args.output_dir / "memory.json", lrm_mode=args.lrm_mode)

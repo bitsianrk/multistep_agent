@@ -61,7 +61,7 @@ export interface RunView {
 }
 export interface RunSummary { run_id: string; request: string | null; brand: Brand | null; stage: string | null;
                               done: boolean; busy: boolean }
-export interface AppConfig { lrm_mode: LrmMode; user: string; autonomy: string; examples: string[] }
+export interface AppConfig { lrm_mode: LrmMode; lrm_reason?: string; user: string; autonomy: string; examples: string[] }
 export interface AgentEvent {
   seq: number; ts: string; type: string; skill?: string; agent?: string; name?: string; text?: string;
   reason?: string; errors?: string[]; ms?: number; ok?: boolean; mode?: string; stage?: string; done?: boolean;
