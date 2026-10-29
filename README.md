@@ -88,9 +88,34 @@ episodic memory.
 
 ![Discussion stage in the web UI](docs/images/ui_discussion.png)
 
-- **Left:** the chat window. A message starts a run, and each stage ends in a checkpoint card with Approve / Ask / Edit / Send back / Pause buttons. Suggested replies are shown for each stage.
-- **Right:** tabs for Overview, Plan, Pack (key numbers, agent findings, audience, PSGs, reconciliation), Discussion (advocates, decision, dissent, critique rounds), Brief (summary, handoff JSON, download), Agents (which skills ran on the LRM or fell back, and why), Memory (working and episodic) and Audit.
-- **Header:** the LRM mode badge (live / simulated / off) and a picker to reopen earlier runs.
+A React front end (`campaign_agent/web/frontend`, Vite + TypeScript) served by a Flask API (`campaign_agent/web/app.py`).
+
+- **Left, stage timeline:** the five stages with what each one decided so far (brand and objective, tools planned, checks passed, chosen brand, handoff), plus tool-call, send-back and agent-run counts.
+- **Centre, conversation:**
+  - A message starts a run. Each stage ends in a **"Your call"** card with the summary, key numbers and Approve / Ask / Edit / Send back / Pause, and suggested replies sit above the composer.
+  - While agents work, a live **Agent activity** card streams what each one is doing: skills starting, tools called, guard rejections, fallbacks.
+- **Right, inspector:**
+  - **Evidence:** key numbers, agent findings, audience, PSGs and reconciliation.
+  - **Plan**, **Debate** (outcome, dissent, advocates, critique rounds) and **Brief** (summary, handoff JSON, download).
+  - **Agents** (LRM or fallback for every skill run), **Memory** (this run and past runs) and **Audit**.
+
+Agent work runs in the background, so a stage that takes minutes on the live LRM never holds a request open. The browser follows progress over Server-Sent Events, and falls back to polling if a proxy blocks them.
+
+The built bundle is committed in `campaign_agent/web/dist`, so running the UI needs Python only. You need Node only to change the UI:
+
+```bash
+cd campaign_agent/web/frontend
+```
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+`npm run dev` hot-reloads on http://localhost:5173 and proxies the API to `python -m campaign_agent.web`, which must be running. When you're done, run `npm run build` to update `web/dist`.
 
 The UI binds to `127.0.0.1` by default. Options:
 
@@ -120,7 +145,7 @@ campaign_agent/
   tools/              28 tools (TOOL.md + manifest.yaml + golden tests), registry, MCP domain servers
   graph.py            LangGraph workflow: 5 stages, a checkpoint after each
   session.py, cli.py  chat session backend and terminal UI
-  web/                Flask API + single-page UI (static/, no build step, no CDN)
+  web/                Flask API (app.py, view.py) + React front end (frontend/ source, dist/ built bundle)
   memory.py           episodic memory; overrides re-weight scoring
   data/               seeded synthetic feature tables, live-API snapshots, Kantar cache, taxonomy
   guardrails.py, handoff.py, evaluation.py, mcp_server.py, demo.py
