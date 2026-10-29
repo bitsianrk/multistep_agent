@@ -1,8 +1,11 @@
 """Web UI for the Campaign Planning Agent: Flask API + React front end.
 
-    python -m campaign_agent.web                     # http://127.0.0.1:8000
-    python -m campaign_agent.web --db runs/state.db  # runs survive a server restart
-    python -m campaign_agent.web --lrm-mode off      # deterministic agents only
+    python -m campaign_agent.web                          # live Tesco LRM, http://127.0.0.1:8000
+    python -m campaign_agent.web --db runs/state.db       # runs survive a server restart
+    python -m campaign_agent.web --lrm-mode simulated     # offline demo, no LRM needed
+
+LRM credentials come from the environment or a .env file in the working
+directory (see .env.example).
 
 Agent work runs in a background thread per run: POST returns 202 at once and
 the browser follows progress on /api/runs/<id>/events (Server-Sent Events),
@@ -28,7 +31,7 @@ from ..config import DEFAULT_SETTINGS, Settings
 from ..guardrails import AccessDenied, display_safe
 from ..harness import resolve_mode
 from ..llm import LRMConfig
-from ..llm.check import mode_reason
+from ..llm.check import live_blocker, mode_reason
 from ..memory import EpisodicMemory
 from ..session import CampaignSession
 from .view import run_summary, run_view
@@ -275,14 +278,22 @@ def create_app(settings: Settings | None = None, checkpointer=None, transport=No
 
 
 def main(argv=None) -> int:
+    from ..envfile import default_lrm_mode, load_env_file
+
+    load_env_file()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--db", type=Path, help="SQLite file for persistent checkpoints")
-    ap.add_argument("--lrm-mode", choices=["auto", "live", "simulated", "off"], default=DEFAULT_SETTINGS.lrm_mode)
+    ap.add_argument("--lrm-mode", choices=["auto", "live", "simulated", "off"], default=default_lrm_mode(),
+                    help="live (default): Tesco v1/lrm/; simulated: offline demo; off: rules only")
     ap.add_argument("--autonomy", choices=["L1", "L2"], default="L1")
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_SETTINGS.output_dir)
     args = ap.parse_args(argv)
+    blocker = live_blocker(args.lrm_mode)
+    if blocker:
+        print(blocker)
+        return 2
     settings = replace(DEFAULT_SETTINGS, lrm_mode=args.lrm_mode, autonomy_level=args.autonomy,
                        output_dir=args.output_dir, memory_path=args.output_dir / "memory.json")
     checkpointer = None
@@ -294,15 +305,12 @@ def main(argv=None) -> int:
         args.db.parent.mkdir(parents=True, exist_ok=True)
         checkpointer = SqliteSaver(sqlite3.connect(str(args.db), check_same_thread=False))
     reason = mode_reason(mode=args.lrm_mode)
-    if args.lrm_mode == "live" and not LRMConfig.from_env().configured:
-        print(f"Cannot start in live mode: {reason.split(' — ', 1)[1]}.\n"
-              "Set LRM_EMPLOYEE_ID and LRM_API_KEY in this terminal, or check with:  python -m campaign_agent.llm.check")
-        return 2
     app = create_app(settings, checkpointer)
     print(f"Campaign Planning Agent UI on http://{args.host}:{args.port}  (Ctrl+C to stop)")
     print(f"LRM: {reason}")
     if reason.startswith("simulated"):
-        print("     To run live: set the variables in this terminal (on the Tesco VPN), then restart.\n"
-              "     Test the connection first with:  python -m campaign_agent.llm.check")
+        print("     Offline demo: agents use the simulated model, not the Tesco LRM.")
+    elif reason.startswith("live"):
+        print("     Each stage calls the Tesco LRM (Tesco VPN required); a stage can take a minute or more.")
     app.run(host=args.host, port=args.port, threaded=True, debug=False)
     return 0

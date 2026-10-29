@@ -23,26 +23,60 @@ Design and code map: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Quick start
 
-```bash
-pip install -r requirements.txt
-```
+The UI and the CLI run **live on the Tesco LRM by default** (the same EA Garage `v1/lrm/` API as the PR coupon design agent). You need to be on the Tesco network or VPN.
 
-Open the web UI at http://127.0.0.1:8000:
+1. Install the dependencies:
 
-```bash
-python -m campaign_agent.web
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Run the scripted demo:
+2. Put your LRM credentials in a `.env` file in the project folder. It is git-ignored, so never commit real values. On Windows:
 
-```bash
-python -m campaign_agent.demo
-```
+   ```bash
+   copy .env.example .env
+   ```
 
-Start the terminal chat instead of the web UI:
+   On macOS / Linux:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then open `.env` and fill in `LRM_EMPLOYEE_ID` and `LRM_API_KEY`. Variables already set in your terminal take precedence over the file.
+
+3. Check the live connection. It sends one tiny prompt and reports whether the credentials are found, whether the endpoint is reachable (VPN) and whether the key is accepted. Wait for `LIVE OK`:
+
+   ```bash
+   python -m campaign_agent.llm.check
+   ```
+
+4. Start the web UI and open http://127.0.0.1:8000. The header badge reads **LRM live**:
+
+   ```bash
+   python -m campaign_agent.web --lrm-mode live
+   ```
+
+   `--lrm-mode live` is the default, so `python -m campaign_agent.web` does the same. If the credentials are missing, it stops with instructions instead of quietly simulating. Each stage calls the LRM; a stage can take a minute or more, and the **Agent activity** card shows the agents working meanwhile.
+
+Other entry points:
+
+Start the terminal chat (also live by default):
 
 ```bash
 python -m campaign_agent
+```
+
+Run an offline demo without the LRM (simulated model):
+
+```bash
+python -m campaign_agent.web --lrm-mode simulated
+```
+
+Run the scripted demo (always offline):
+
+```bash
+python -m campaign_agent.demo
 ```
 
 Run the tests:
@@ -57,34 +91,7 @@ Run the evaluation scorecard:
 python -m campaign_agent.evaluation
 ```
 
-Without credentials, the agents run on the offline **simulated model**. It drives the real
-harness loop: prompts, tool calls, parsing, guards and memory. Its decisions equal the
-deterministic policies.
-
-### Connecting to the Tesco LRM
-
-On the Tesco network, set the same variables the coupon design agent uses. They come from
-the environment only, so never commit them (see `.env.example`):
-
-```bash
-export LRM_EMPLOYEE_ID=<your employee id>
-```
-
-```bash
-export LRM_API_KEY=<your key>
-```
-
-Then start the chat. `--lrm-mode auto` goes live when both variables are set:
-
-```bash
-python -m campaign_agent --lrm-mode auto
-```
-
-Before starting, you can test the live connection from the same terminal. It reports whether the credentials are visible, whether the endpoint is reachable (Tesco VPN), and whether the key is accepted:
-
-```bash
-python -m campaign_agent.llm.check
-```
+The **simulated model** drives the real harness loop offline: prompts, tool calls, parsing, guards and memory. Its decisions equal the deterministic policies. If the live LRM is unreachable or returns unusable output for a step, that agent falls back to its rule-based policy and the run continues; the **Agents** tab shows which steps ran on the LRM and which fell back.
 
 When the web UI starts, it prints which LRM mode it chose and why. Hover the badge in the header to see the same reason.
 

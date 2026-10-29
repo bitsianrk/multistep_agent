@@ -40,6 +40,20 @@ def mode_reason(config: LRMConfig | None = None, mode: str | None = None) -> str
     return f"simulated — {' and '.join(missing)} not set in this terminal"
 
 
+def live_blocker(mode: str, config: LRMConfig | None = None) -> str | None:
+    """Why an entry point cannot start in `mode`, or None when it can."""
+    config = config or LRMConfig.from_env()
+    if mode != "live" or config.configured:
+        return None
+    missing = [n for n, v in (("LRM_EMPLOYEE_ID", config.employee_id), ("LRM_API_KEY", config.api_key)) if not v]
+    return ("Cannot start in live mode: " + " and ".join(missing) + " not set.\n\n"
+            "Either put them in a .env file in this folder (copy .env.example to .env and fill it in),\n"
+            "or set them in THIS terminal:\n\n"
+            + (POWERSHELL if os.name == "nt" else BASH) + "\n\n"
+            "Test the connection with:  python -m campaign_agent.llm.check\n"
+            "Offline demo without the LRM:  add --lrm-mode simulated")
+
+
 def check(config: LRMConfig | None = None, timeout: int = 60) -> tuple[bool, str]:
     config = config or LRMConfig.from_env()
     lines = [f"LRM_EMPLOYEE_ID  {_mask(config.employee_id)}",
@@ -48,7 +62,8 @@ def check(config: LRMConfig | None = None, timeout: int = 60) -> tuple[bool, str
              f"Endpoint         {config.base_url}/<employee id>/v1/lrm/"]
     if not config.configured:
         shell = POWERSHELL if os.name == "nt" else BASH
-        lines += ["", "NOT LIVE: credentials are missing from this terminal. Set them in the SAME terminal",
+        lines += ["", "NOT LIVE: credentials are missing. Put them in a .env file in this folder",
+                  "(copy .env.example to .env and fill it in), or set them in the SAME terminal",
                   "that starts the agent (variables do not carry over between terminals):", "", shell, "",
                   "then run:  python -m campaign_agent.web"]
         return False, "\n".join(lines)
@@ -79,6 +94,9 @@ def check(config: LRMConfig | None = None, timeout: int = 60) -> tuple[bool, str
 
 
 def main() -> int:
+    from ..envfile import load_env_file
+
+    load_env_file()
     ok, report = check()
     print(report)
     return 0 if ok else 1

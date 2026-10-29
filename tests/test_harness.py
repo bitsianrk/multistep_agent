@@ -199,8 +199,11 @@ def test_number_guard():
 def test_off_mode_never_calls_the_lrm(make_session, settings):
     from dataclasses import replace
 
+    from campaign_agent.demo import SCENARIOS
+
     s = make_session(settings=replace(settings, lrm_mode="off"))
-    drive(s, [REQUEST, "yes"])
+    drive(s, SCENARIOS["switch"])  # every stage on the fallback policies, end to end
+    assert s.done
     assert all(r["source"] == "fallback" for r in s.values["harness_log"])
 
 

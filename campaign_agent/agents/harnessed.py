@@ -170,8 +170,8 @@ def plan(h, log, rt, state, planner):
     task = {"brand_id": brand, "brand": BRANDS[brand]["name"], "objective": objective, "window": window}
 
     def fallback():
-        p = planner.plan(brand, objective, window)
-        return {"steps": [{k: v for k, v in s.items() if k != "id"} for s in p["steps"]], "signals": p["signals"]}
+        # The complete plan (brand, objective, window, step ids): used as-is when the LRM falls back.
+        return planner.plan(brand, objective, window)
 
     def validate(o, _outs):
         steps, bad = [], []

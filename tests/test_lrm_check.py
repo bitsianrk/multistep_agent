@@ -47,7 +47,7 @@ def forbidden():
 def test_missing_credentials_explains_how_to_set_them():
     ok, report = check(LRMConfig())
     assert not ok
-    assert "credentials are missing from this terminal" in report and "LRM_API_KEY" in report
+    assert "credentials are missing" in report and ".env" in report and "LRM_API_KEY" in report
 
 
 def test_live_round_trip(live_ok):
