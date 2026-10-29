@@ -76,6 +76,14 @@ class AgentRuntime:
     run_id: str
     budget: RunBudget
     trace: list[dict] = field(default_factory=list)
+    listener: object = None  # optional callable(event) for live activity
+
+    def notify(self, event: dict) -> None:
+        if self.listener is not None:
+            try:
+                self.listener(event)
+            except Exception:
+                pass
 
 
 class Agent:
@@ -96,10 +104,12 @@ class Agent:
                                         role=self.rt.user["role"], budget=self.rt.budget)
         except Exception as exc:
             self.rt.trace.append({"agent": self.key, "tool": tool, "ok": False, "error": str(exc)})
+            self.rt.notify({"type": "tool_call", "agent": self.key, "name": tool, "ok": False})
             raise
         self.rt.trace.append({"agent": self.key, "tool": tool, "version": res["version"], "ok": True,
                               "latency_ms": res["latency_ms"],
                               "args": {k: v for k, v in args.items() if k not in ("pack", "decision")}})
+        self.rt.notify({"type": "tool_call", "agent": self.key, "name": tool, "ok": True, "ms": res["latency_ms"]})
         return res
 
     def out(self, tool: str, **args) -> dict:

@@ -224,3 +224,7 @@ runs/
 
 # Local credentials
 .env
+
+# Front-end dependencies (the built bundle in campaign_agent/web/dist is committed)
+campaign_agent/web/frontend/node_modules/
+!campaign_agent/web/dist/

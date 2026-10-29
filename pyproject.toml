@@ -12,6 +12,7 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=2.0",
     "PyYAML>=6.0",
     "requests>=2.28",
+    "flask>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +28,7 @@ include = ["campaign_agent*"]
 
 [tool.setuptools.package-data]
 campaign_agent = ["tools/library/*/TOOL.md", "tools/library/*/manifest.yaml", "tools/library/*/tests/*.json",
-                  "skills/HARNESS.md", "skills/*/SKILL.md", "web/static/*"]
+                  "skills/HARNESS.md", "skills/*/SKILL.md", "web/dist/*", "web/dist/assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

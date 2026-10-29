@@ -213,21 +213,23 @@ weekly tables are calibrated to them, so reconciliation is real arithmetic.
 
 ## Web UI
 
-`campaign_agent/web/` holds the chat window from the design as a local web app: a JSON API
-over `CampaignSession` on Python's standard-library `http.server`, and one static page with
-no build step and no CDN. It needs no packages beyond the agent's own, so it installs from
-locked-down package mirrors and works on the Tesco network.
+`campaign_agent/web/` holds the chat window from the design.
+
+- **Front end:** a React 19 + TypeScript app built with Vite. The source is in `frontend/`, and the built bundle is committed in `dist/`, so running it needs no Node.
+- **Back end:** a Flask API over `CampaignSession`.
+- **Background work:** each reply runs in a background thread per run. POST returns `202`, and the browser follows a per-run, sequence-numbered event log over Server-Sent Events.
+- **Live activity:** the harness and agent runtime publish each event (skill start, thought, tool call, guard rejection, fallback, finish) through an optional `listener` hook.
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/runs` | start a run from a chat message |
-| `POST /api/runs/<id>/reply` | answer the checkpoint |
-| `GET /api/runs/<id>` | the view model: stages, pending card, chat, plan, pack, discussion, brief, harness log, memory, audit |
+| `POST /api/runs` | start a run from a chat message (`202`; `?wait=1` runs inline) |
+| `POST /api/runs/<id>/reply` | answer the checkpoint (`409` while agents are still working) |
+| `GET /api/runs/<id>` | the view model: stages, pending card, chat, plan, pack, discussion, brief, harness log, memory, audit, busy |
+| `GET /api/runs/<id>/events?after=<seq>` | live agent activity (SSE; resumable) |
 | `GET /api/runs/<id>/brief.json` | download the Agreed Brief |
 | `GET /api/memory` | episodic memory |
 
-All agent text is rendered as text, never as HTML. Kantar fields outside the licence scope
-are stripped from the view model. In production the Teams bot calls the same session API.
+React renders all agent text as text. Kantar fields outside the licence scope are stripped from the view model and from the event stream. In production the Teams bot calls the same session API.
 
 ![Diagnose checkpoint](images/ui_diagnose.png)
 

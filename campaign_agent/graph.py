@@ -102,7 +102,8 @@ def build_graph(settings: Settings, checkpointer=None, memory: EpisodicMemory | 
         def __init__(self, state: RunState):
             self.rt = AgentRuntime(registry=registry, settings=settings, store=store, user=state["user"],
                                    run_id=state["run_id"],
-                                   budget=RunBudget(settings.max_tool_calls, state.get("tool_calls", 0)))
+                                   budget=RunBudget(settings.max_tool_calls, state.get("tool_calls", 0)),
+                                   listener=h.listener)
             self.gw = ChatGateway(self.rt)
             self.log = llm.HarnessLog()
             self.stage = state.get("stage")

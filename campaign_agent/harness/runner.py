@@ -82,6 +82,8 @@ class AgentHarness:
         self.config = lrm_config or LRMConfig.from_env()
         self.mode = "live" if transport is not None and mode != "off" else resolve_mode(mode, self.config)
         self.stats = LRMStats()
+        # Optional callable(event: dict) for live activity (the web UI streams these).
+        self.listener = None
         self._transport = transport
         if self.mode == "live" and self._transport is None:
             self._transport = HTTPTransport(self.config)
@@ -123,9 +125,15 @@ class AgentHarness:
         skill = self.library.get(skill_name)
         started = time.perf_counter()
 
+        def emit(evs: list, e: dict) -> None:
+            evs.append(e)
+            self.notify({"skill": skill_name, "agent": skill.agent, **e})
+
+        self.notify({"skill": skill_name, "agent": skill.agent, "type": "skill_start", "mode": self.mode})
+
         def fall(reason: str, it: int, events, writes, outs) -> HarnessResult:
             out = fallback()
-            events.append({"type": "fallback", "reason": reason})
+            emit(events, {"type": "fallback", "reason": reason})
             return HarnessResult(skill_name, out, "fallback", reason, it, events, writes, outs)
 
         if self.mode == "off":
@@ -168,7 +176,7 @@ class AgentHarness:
             msg = choice["message"]
             messages.append(msg)
             if msg.get("content"):
-                events.append({"type": "thought", "text": msg["content"][:300]})
+                emit(events, {"type": "thought", "text": msg["content"][:300]})
             calls = msg.get("tool_calls") or []
             if not calls:
                 direct = _json_in(msg.get("content") or "")
@@ -200,28 +208,35 @@ class AgentHarness:
                         errors = [str(exc)]
                 if errors:
                     bad_finish += 1
-                    events.append({"type": "invalid_output", "errors": errors[:5]})
+                    emit(events, {"type": "invalid_output", "errors": errors[:5]})
                     if bad_finish >= 3:
                         return fall(f"invalid output: {errors[0]}", it, events, writes, outs)
                     messages.append({"role": "tool", "tool_call_id": tc["id"],
                                      "content": json.dumps({"error": "output rejected", "fix": errors[:8]})})
                     continue
-                events.append({"type": "finish", "ms": round((time.perf_counter() - started) * 1000, 1)})
+                emit(events, {"type": "finish", "ms": round((time.perf_counter() - started) * 1000, 1)})
                 return HarnessResult(skill_name, args, "llm", None, it, events, writes, outs)
 
             key = f"{name}:{json.dumps(args, sort_keys=True)}"
             seen[key] = seen.get(key, 0) + 1
             if seen[key] > 2:
-                events.append({"type": "loop_detected", "tool": name})
+                emit(events, {"type": "loop_detected", "tool": name})
                 messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(
                     {"note": "You already have this result. Use it, call a different tool, or finish."})})
                 continue
 
             result = self._dispatch(name, args, offered, registry_tools, skill, rt, state, writes, outs)
-            events.append({"type": "tool", "name": name, "ok": "error" not in result})
+            emit(events, {"type": "tool", "name": name, "ok": "error" not in result})
             messages.append({"role": "tool", "tool_call_id": tc["id"],
                              "content": json.dumps(display_safe(result), default=str)})
         return fall("max iterations reached", skill.max_iterations, events, writes, outs)
+
+    def notify(self, event: dict) -> None:
+        if self.listener is not None:
+            try:
+                self.listener(event)
+            except Exception:  # a broken listener must never break a run
+                pass
 
     def _warmup_args(self, name: str, task: dict, state: dict) -> dict:
         """Arguments the simulated model passes: the tool's inputs that the task or run state supply."""
