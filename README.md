@@ -120,7 +120,7 @@ campaign_agent/
   tools/              28 tools (TOOL.md + manifest.yaml + golden tests), registry, MCP domain servers
   graph.py            LangGraph workflow: 5 stages, a checkpoint after each
   session.py, cli.py  chat session backend and terminal UI
-  web/                Flask API + single-page UI (static/, no build step, no CDN)
+  web/                standard-library web server + single-page UI (static/, no build step, no CDN)
   memory.py           episodic memory; overrides re-weight scoring
   data/               seeded synthetic feature tables, live-API snapshots, Kantar cache, taxonomy
   guardrails.py, handoff.py, evaluation.py, mcp_server.py, demo.py

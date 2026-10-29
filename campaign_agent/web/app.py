@@ -1,4 +1,4 @@
-"""Web UI for the Campaign Planning Agent (Flask).
+"""Web UI for the Campaign Planning Agent (standard library only).
 
     python -m campaign_agent.web                     # http://127.0.0.1:8000
     python -m campaign_agent.web --db runs/state.db  # runs survive a server restart
@@ -7,19 +7,23 @@
 The page is the chat window from the design: a message starts a run, every
 stage stops at a checkpoint card, and the side panels show the plan,
 Diagnostic Pack, discussion, Agreed Brief, harness log and memory. It drives
-the same CampaignSession as the CLI. Internal use only: it binds to
-localhost by default.
+the same CampaignSession as the CLI.
+
+The server is built on http.server, so it needs no packages beyond the agent's
+own (corporate package mirrors often do not carry web frameworks). It binds
+to localhost by default: internal use only.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
+import re
 import threading
 from dataclasses import replace
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-
-from flask import Flask, Response, jsonify, request, send_from_directory
 
 from ..config import DEFAULT_SETTINGS, Settings
 from ..guardrails import AccessDenied
@@ -31,6 +35,13 @@ from .view import run_summary, run_view
 
 STATIC = Path(__file__).parent / "static"
 MAX_MESSAGE = 2000
+MAX_BODY = 64 * 1024
+RUN_ID = r"([A-Za-z0-9_-]{1,64})"
+EXAMPLES = [
+    "Plan a Multi-Step for Crunchwell crisps to win back lapsed shoppers, 4 weeks from 16 Nov",
+    "Set up something for Golden this Christmas",
+    "Grow Meadow Fresh yoghurt frequency, 4 weeks from 2 Mar",
+]
 
 
 class RunStore:
@@ -67,6 +78,10 @@ class RunStore:
             self.locks[run_id] = threading.Lock()
         return s
 
+    def all(self) -> list[CampaignSession]:
+        with self._lock:
+            return list(self.sessions.values())
+
     def lock(self, run_id: str) -> threading.Lock:
         return self.locks[run_id]
 
@@ -79,99 +94,180 @@ class RunStore:
         return CampaignSession(user=user, settings=self.settings, run_id=run_id, **kw)
 
 
-def create_app(settings: Settings | None = None, checkpointer=None, transport=None, handoff=None,
-               user: dict | None = None) -> Flask:
-    settings = settings or DEFAULT_SETTINGS
-    app = Flask(__name__, static_folder=None)
-    runs = RunStore(settings, checkpointer, transport, handoff)
-    app.config["RUNS"] = runs
-    default_user = user or {"id": "cm.local", "name": "Campaign Manager", "role": "campaign_manager_role"}
+class Response:
+    def __init__(self, status: int, body: bytes, content_type: str = "application/json", headers=None):
+        self.status = status
+        self.body = body
+        self.headers = {"Content-Type": content_type, **(headers or {})}
 
-    def current_user() -> dict:
+    @classmethod
+    def json(cls, obj, status: int = 200, headers=None) -> "Response":
+        return cls(status, json.dumps(obj, default=str).encode(), "application/json; charset=utf-8", headers)
+
+
+class WebApp:
+    """Routes requests to the run store. `handle` is transport-free, so tests call it directly."""
+
+    def __init__(self, settings: Settings | None = None, checkpointer=None, transport=None, handoff=None,
+                 user: dict | None = None):
+        self.settings = settings or DEFAULT_SETTINGS
+        self.transport = transport
+        self.runs = RunStore(self.settings, checkpointer, transport, handoff)
+        self.default_user = user or {"id": "cm.local", "name": "Campaign Manager", "role": "campaign_manager_role"}
+        self.routes = [
+            ("GET", r"/", self.index),
+            ("GET", r"/static/([A-Za-z0-9_.-]+)", self.static),
+            ("GET", r"/api/config", self.config),
+            ("GET", r"/api/runs", self.list_runs),
+            ("POST", r"/api/runs", self.start_run),
+            ("GET", rf"/api/runs/{RUN_ID}", self.get_run),
+            ("POST", rf"/api/runs/{RUN_ID}/reply", self.reply),
+            ("GET", rf"/api/runs/{RUN_ID}/brief\.json", self.brief),
+            ("GET", r"/api/memory", self.memory),
+        ]
+
+    # Dispatch -------------------------------------------------------------
+    def handle(self, method: str, path: str, body: bytes = b"", headers: dict | None = None) -> Response:
+        headers = {k.lower(): v for k, v in (headers or {}).items()}
+        path = path.split("?", 1)[0]
+        allowed = False
+        for m, pattern, fn in self.routes:
+            match = re.fullmatch(pattern, path)
+            if not match:
+                continue
+            allowed = True
+            if m != method:
+                continue
+            req = {"body": body, "headers": headers}
+            try:
+                return fn(req, *match.groups())
+            except AccessDenied as exc:
+                return Response.json({"error": str(exc)}, 403)
+        if allowed:
+            return Response.json({"error": "method not allowed"}, 405)
+        return Response.json({"error": "not found"}, 404)
+
+    def _user(self, req) -> dict:
         # Entra ID in production; locally the user id can be set with X-User-Id.
-        return {**default_user, "id": request.headers.get("X-User-Id", default_user["id"])[:64]}
+        uid = req["headers"].get("x-user-id", self.default_user["id"])
+        return {**self.default_user, "id": re.sub(r"[^\w.@-]", "", uid)[:64] or self.default_user["id"]}
 
-    def message() -> str:
-        text = str((request.get_json(silent=True) or {}).get("message", "")).strip()
-        return text[:MAX_MESSAGE]
+    @staticmethod
+    def _message(req) -> str:
+        try:
+            data = json.loads(req["body"] or b"{}")
+        except ValueError:
+            data = {}
+        return str((data if isinstance(data, dict) else {}).get("message", "")).strip()[:MAX_MESSAGE]
 
-    @app.errorhandler(AccessDenied)
-    def denied(exc):
-        return jsonify(error=str(exc)), 403
+    # Pages -----------------------------------------------------------------
+    def index(self, req):
+        return self.static(req, "index.html")
 
-    @app.get("/")
-    def index():
-        return send_from_directory(STATIC, "index.html")
+    def static(self, req, name):
+        f = (STATIC / name).resolve()
+        if f.parent != STATIC.resolve() or not f.is_file():
+            return Response.json({"error": "not found"}, 404)
+        ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
+        if ctype.startswith("text/") or ctype.endswith("javascript"):
+            ctype += "; charset=utf-8"
+        return Response(200, f.read_bytes(), ctype, {"Cache-Control": "no-cache"})
 
-    @app.get("/static/<path:name>")
-    def static_files(name):
-        return send_from_directory(STATIC, name)
+    # API -------------------------------------------------------------------
+    def config(self, req):
+        s = self.settings
+        mode = "live" if self.transport is not None and s.lrm_mode != "off" else \
+            resolve_mode(s.lrm_mode, LRMConfig.from_env())
+        return Response.json({"lrm_mode": mode, "user": self._user(req)["id"], "autonomy": s.autonomy_level,
+                              "examples": EXAMPLES})
 
-    @app.get("/api/config")
-    def config():
-        mode = "live" if transport is not None and settings.lrm_mode != "off" else \
-            resolve_mode(settings.lrm_mode, LRMConfig.from_env())
-        return jsonify(lrm_mode=mode, user=current_user()["id"],
-                       autonomy=settings.autonomy_level, examples=[
-                           "Plan a Multi-Step for Crunchwell crisps to win back lapsed shoppers, 4 weeks from 16 Nov",
-                           "Set up something for Golden this Christmas",
-                           "Grow Meadow Fresh yoghurt frequency, 4 weeks from 2 Mar"])
+    def list_runs(self, req):
+        return Response.json([run_summary(s) for s in reversed(self.runs.all())])
 
-    @app.get("/api/runs")
-    def list_runs():
-        with runs._lock:
-            items = list(runs.sessions.values())
-        return jsonify([run_summary(s) for s in reversed(items)])
-
-    @app.post("/api/runs")
-    def start_run():
-        text = message()
+    def start_run(self, req):
+        text = self._message(req)
         if not text:
-            return jsonify(error="message is required"), 400
-        s = runs.new(current_user())
-        with runs.lock(s.run_id):
+            return Response.json({"error": "message is required"}, 400)
+        s = self.runs.new(self._user(req))
+        with self.runs.lock(s.run_id):
             s.start(text)
-        return jsonify(run_view(s)), 201
+        return Response.json(run_view(s), 201)
 
-    @app.get("/api/runs/<run_id>")
-    def get_run(run_id):
-        s = runs.get(run_id, current_user())
+    def get_run(self, req, run_id):
+        s = self.runs.get(run_id, self._user(req))
         if s is None:
-            return jsonify(error="unknown run"), 404
-        return jsonify(run_view(s))
+            return Response.json({"error": "unknown run"}, 404)
+        return Response.json(run_view(s))
 
-    @app.post("/api/runs/<run_id>/reply")
-    def reply(run_id):
-        s = runs.get(run_id, current_user())
+    def reply(self, req, run_id):
+        s = self.runs.get(run_id, self._user(req))
         if s is None:
-            return jsonify(error="unknown run"), 404
-        text = message()
+            return Response.json({"error": "unknown run"}, 404)
+        text = self._message(req)
         if not text:
-            return jsonify(error="message is required"), 400
-        lock = runs.lock(run_id)
+            return Response.json({"error": "message is required"}, 400)
+        lock = self.runs.lock(run_id)
         if not lock.acquire(blocking=False):
-            return jsonify(error="this run is still working on the previous message"), 409
+            return Response.json({"error": "this run is still working on the previous message"}, 409)
         try:
             if not s.awaiting:
-                return jsonify(error="run is not waiting at a checkpoint"), 409
+                return Response.json({"error": "run is not waiting at a checkpoint"}, 409)
             s.reply(text)
         finally:
             lock.release()
-        return jsonify(run_view(s))
+        return Response.json(run_view(s))
 
-    @app.get("/api/runs/<run_id>/brief.json")
-    def brief(run_id):
-        s = runs.get(run_id, current_user())
+    def brief(self, req, run_id):
+        s = self.runs.get(run_id, self._user(req))
         if s is None or not s.values.get("brief"):
-            return jsonify(error="no brief yet"), 404
-        return Response(json.dumps(s.values["brief"], indent=2), mimetype="application/json",
-                        headers={"Content-Disposition": f"attachment; filename=agreed_brief_{run_id}.json"})
+            return Response.json({"error": "no brief yet"}, 404)
+        return Response(200, json.dumps(s.values["brief"], indent=2).encode(), "application/json",
+                        {"Content-Disposition": f"attachment; filename=agreed_brief_{run_id}.json"})
 
-    @app.get("/api/memory")
-    def memory():
-        return jsonify(runs.memory.data)
+    def memory(self, req):
+        return Response.json(self.runs.memory.data)
 
-    return app
+    # Serving ---------------------------------------------------------------
+    def make_server(self, host: str = "127.0.0.1", port: int = 8000) -> ThreadingHTTPServer:
+        app = self
+
+        class Handler(BaseHTTPRequestHandler):
+            server_version = "CampaignAgentUI"
+
+            def _go(self, method):
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > MAX_BODY:
+                    res = Response.json({"error": "request too large"}, 413)
+                else:
+                    body = self.rfile.read(n) if n else b""
+                    try:
+                        res = app.handle(method, self.path, body, dict(self.headers))
+                    except Exception as exc:  # keep the server up; show the error in the UI
+                        res = Response.json({"error": f"{type(exc).__name__}: {exc}"}, 500)
+                self.send_response(res.status)
+                for k, v in res.headers.items():
+                    self.send_header(k, v)
+                self.send_header("Content-Length", str(len(res.body)))
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.end_headers()
+                self.wfile.write(res.body)
+
+            def do_GET(self):  # noqa: N802
+                self._go("GET")
+
+            def do_POST(self):  # noqa: N802
+                self._go("POST")
+
+            def log_message(self, fmt, *args):
+                if not self.path.startswith("/static/"):
+                    print(f"  {self.command} {self.path} -> {args[1] if len(args) > 1 else ''}")
+
+        return ThreadingHTTPServer((host, port), Handler)
+
+
+def create_app(settings: Settings | None = None, checkpointer=None, transport=None, handoff=None,
+               user: dict | None = None) -> WebApp:
+    return WebApp(settings, checkpointer, transport, handoff, user)
 
 
 def main(argv=None) -> int:
@@ -193,7 +289,12 @@ def main(argv=None) -> int:
 
         args.db.parent.mkdir(parents=True, exist_ok=True)
         checkpointer = SqliteSaver(sqlite3.connect(str(args.db), check_same_thread=False))
-    app = create_app(settings, checkpointer)
+    server = create_app(settings, checkpointer).make_server(args.host, args.port)
     print(f"Campaign Planning Agent UI on http://{args.host}:{args.port}  (Ctrl+C to stop)")
-    app.run(host=args.host, port=args.port, threaded=True, debug=False)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    finally:
+        server.server_close()
     return 0

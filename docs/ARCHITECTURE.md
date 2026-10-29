@@ -213,9 +213,10 @@ weekly tables are calibrated to them, so reconciliation is real arithmetic.
 
 ## Web UI
 
-`campaign_agent/web/` holds the chat window from the design as a local web app: a Flask API
-over `CampaignSession`, and one static page with no build step and no CDN, so it works on
-the Tesco network.
+`campaign_agent/web/` holds the chat window from the design as a local web app: a JSON API
+over `CampaignSession` on Python's standard-library `http.server`, and one static page with
+no build step and no CDN. It needs no packages beyond the agent's own, so it installs from
+locked-down package mirrors and works on the Tesco network.
 
 | Endpoint | Purpose |
 |---|---|

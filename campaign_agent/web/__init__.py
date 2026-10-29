@@ -1,4 +1,4 @@
-"""Web UI: Flask API + a single static page (no build step, no CDN)."""
+"""Web UI: a standard-library HTTP server + a single static page (no build step, no CDN)."""
 
 from .app import create_app, main
 

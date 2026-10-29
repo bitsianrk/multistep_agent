@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import threading
+import urllib.request
+
 import pytest
 
 from campaign_agent.demo import SCENARIOS
@@ -9,10 +13,32 @@ from campaign_agent.handoff import MemoryHandoff
 from campaign_agent.web import create_app
 
 
+class _Resp:
+    def __init__(self, r):
+        self.status_code, self.data, self.headers = r.status, r.body, r.headers
+
+    def get_json(self):
+        return json.loads(self.data)
+
+
+class _Client:
+    """Calls WebApp.handle directly - no sockets needed."""
+
+    def __init__(self, app):
+        self.app = app
+
+    def get(self, path):
+        return _Resp(self.app.handle("GET", path))
+
+    def post(self, path, json=None):
+        import json as _j
+        return _Resp(self.app.handle("POST", path, _j.dumps(json or {}).encode(),
+                                     {"Content-Type": "application/json"}))
+
+
 @pytest.fixture
 def client(settings):
-    app = create_app(settings, handoff=MemoryHandoff())
-    return app.test_client()
+    return _Client(create_app(settings, handoff=MemoryHandoff()))
 
 
 def test_index_and_static_assets_are_served(client):
@@ -60,3 +86,24 @@ def test_view_never_leaks_licence_restricted_kantar_fields(client):
     for msg in ("yes", "go"):
         r = client.post(f"/api/runs/{run_id}/reply", json={"message": msg})
     assert b"panel_sample_households" not in r.data
+
+
+def test_served_over_a_real_socket(settings):
+    server = create_app(settings, handoff=MemoryHandoff()).make_server("127.0.0.1", 0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        assert b"Multi-Step Campaign Planner" in urllib.request.urlopen(base + "/").read()
+        req = urllib.request.Request(base + "/api/runs", data=json.dumps({"message": SCENARIOS["switch"][0]}).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req) as r:
+            assert r.status == 201 and json.loads(r.read())["pending"]["stage"] == "understand"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_static_path_traversal_is_refused(client):
+    assert client.get("/static/..%2Fapp.py").status_code == 404
+    assert client.get("/static/../app.py").status_code == 404
+    assert client.post("/api/config").status_code == 405
